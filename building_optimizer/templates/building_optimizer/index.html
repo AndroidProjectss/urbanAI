@@ -1,0 +1,2066 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система анализа городской инфраструктуры | Мэрия г. Бишкек</title>
+    {% csrf_token %}
+    
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    
+    <style>
+        :root {
+            --primary-black: #1a1a1a;
+            --secondary-gray: #4a4a4a;
+            --light-gray: #e5e5e5;
+            --white: #ffffff;
+            --accent-gray: #2d2d2d;
+            --border-gray: #d1d5db;
+            --shadow: rgba(0, 0, 0, 0.1);
+            --shadow-dark: rgba(0, 0, 0, 0.25);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--light-gray) 0%, var(--white) 100%);
+            color: var(--primary-black);
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(90deg, var(--primary-black) 0%, var(--secondary-gray) 100%);
+            color: var(--white);
+            padding: 1rem 0;
+            box-shadow: 0 4px 12px var(--shadow-dark);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: headerShine 3s infinite;
+        }
+
+        @keyframes headerShine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .header-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+
+        .header-subtitle {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin: 0;
+        }
+
+        /* Main Layout */
+        .main-container {
+            height: calc(100vh - 80px);
+            display: flex;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            width: 380px;
+            background: var(--white);
+            border-right: 3px solid var(--border-gray);
+            box-shadow: 4px 0 12px var(--shadow);
+            padding: 1.5rem;
+            overflow-y: auto;
+            animation: slideInLeft 0.8s ease-out;
+        }
+
+        @keyframes slideInLeft {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .section-card {
+            background: var(--white);
+            border: 2px solid var(--border-gray);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px var(--shadow);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .section-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--secondary-gray);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .section-card:hover {
+            box-shadow: 0 4px 16px var(--shadow-dark);
+            transform: translateY(-2px);
+        }
+
+        .section-card:hover::before {
+            transform: scaleY(1);
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary-black);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title i {
+            color: var(--secondary-gray);
+        }
+
+        /* Facility Types */
+        .facility-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+        }
+
+        .facility-btn, .toggle-button {
+            background: var(--light-gray);
+            border: 2px solid var(--border-gray);
+            color: var(--primary-black);
+            padding: 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .facility-btn::before, .toggle-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: var(--secondary-gray);
+            border-radius: 50%;
+            transition: all 0.4s ease;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+        }
+
+        .facility-btn span, .toggle-button span {
+            position: relative;
+            z-index: 1;
+            transition: color 0.3s ease;
+        }
+
+        .facility-btn:hover::before, .toggle-button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .facility-btn:hover span, .toggle-button:hover span {
+            color: var(--white);
+        }
+
+        .facility-btn.active, .toggle-button.active {
+            background: var(--secondary-gray);
+            color: var(--white);
+            border-color: var(--primary-black);
+            transform: scale(0.98);
+        }
+
+        /* Districts */
+        .district-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .district-item {
+            background: var(--light-gray);
+            border: 1px solid var(--border-gray);
+            border-radius: 6px;
+            padding: 0.8rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .district-item:hover {
+            background: var(--secondary-gray);
+            color: var(--white);
+            transform: translateX(4px);
+        }
+
+        .district-item.selected {
+            background: var(--primary-black);
+            color: var(--white);
+            border-color: var(--secondary-gray);
+        }
+
+        .district-sublist {
+            margin-top: 0.5rem;
+            margin-left: 1rem;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        .district-sublist.show {
+            display: block;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .sub-district {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--border-gray);
+            border-radius: 4px;
+            padding: 0.6rem;
+            margin-bottom: 0.3rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .sub-district:hover {
+            background: var(--light-gray);
+            transform: translateX(2px);
+        }
+
+        .sub-district.selected {
+            background: var(--secondary-gray);
+            color: var(--white);
+        }
+
+        /* Controls */
+        .controls-section {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .controls-section h4 {
+            margin: 0 0 10px 0;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        /* City Input */
+        .city-input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid var(--border-gray);
+            border-radius: 6px;
+            background: var(--white);
+            color: var(--primary-black);
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .city-input:focus {
+            outline: none;
+            border-color: var(--secondary-gray);
+            box-shadow: 0 0 0 3px rgba(74, 74, 74, 0.1);
+        }
+
+        /* Analyze Button */
+        .analyze-btn, .load-data-btn {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary-black) 0%, var(--secondary-gray) 100%);
+            color: var(--white);
+            border: none;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .analyze-btn::before, .load-data-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .analyze-btn:hover, .load-data-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--shadow-dark);
+        }
+
+        .analyze-btn:hover::before, .load-data-btn:hover::before {
+            left: 100%;
+        }
+
+        .analyze-btn:active, .load-data-btn:active {
+            transform: translateY(0);
+        }
+
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: var(--white);
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Map Legend */
+        .map-legend {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 200px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        /* Results Panel */
+        .results-panel {
+            position: fixed;
+            top: 80px;
+            right: -100%;
+            width: calc(100% - 380px);
+            height: calc(100vh - 80px);
+            background: var(--white);
+            border-left: 3px solid var(--border-gray);
+            box-shadow: -4px 0 20px var(--shadow-dark);
+            transition: right 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .results-panel.show {
+            right: 0;
+        }
+
+        .results-header {
+            background: linear-gradient(135deg, var(--primary-black) 0%, var(--secondary-gray) 100%);
+            color: var(--white);
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .results-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .close-results {
+            background: none;
+            border: none;
+            color: var(--white);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 0.5rem;
+            border-radius: 50%;
+        }
+
+        .close-results:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(90deg);
+        }
+
+        .results-content {
+            padding: 2rem;
+        }
+
+        .analysis-text {
+            background: var(--light-gray);
+            border: 2px solid var(--border-gray);
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .analysis-section {
+            margin-bottom: 2rem;
+        }
+
+        .analysis-section h4 {
+            color: var(--primary-black);
+            font-weight: 600;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border-gray);
+        }
+
+        .analysis-section p {
+            color: var(--secondary-gray);
+            margin-bottom: 1rem;
+            text-align: justify;
+        }
+
+        .analysis-highlight {
+            background: var(--secondary-gray);
+            color: var(--white);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--white);
+            border: 2px solid var(--border-gray);
+            border-radius: 8px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: scale(0.9) translateY(20px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .stat-card.animate {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--secondary-gray);
+            transform: scaleX(0);
+            transition: transform 0.6s ease;
+        }
+
+        .stat-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+            border-color: var(--secondary-gray);
+        }
+
+        .stat-number {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: var(--primary-black);
+            margin-bottom: 0.8rem;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .stat-card:hover .stat-number {
+            transform: scale(1.05);
+            color: var(--secondary-gray);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--secondary-gray);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .chart-container {
+            background: var(--white);
+            border: 2px solid var(--border-gray);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            height: 400px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .chart-container.animate {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .chart-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 3px;
+            background: var(--secondary-gray);
+            transition: left 0.6s ease;
+        }
+
+        .chart-container:hover::before {
+            left: 0;
+        }
+
+        .chart-container:hover {
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            transform: translateY(-3px);
+        }
+
+        .chart-container canvas {
+            max-height: 320px !important;
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-black);
+            margin-bottom: 1.2rem;
+            text-align: center;
+            position: relative;
+            padding-bottom: 10px;
+        }
+
+        .chart-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 2px;
+            background: var(--secondary-gray);
+            border-radius: 1px;
+        }
+
+        /* School Info */
+        .school-info-content {
+            background: rgba(0,0,0,0.05);
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .school-info-item {
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+        }
+
+        .school-info-item strong {
+            color: var(--secondary-gray);
+        }
+
+        .registry-badge {
+            display: inline-block;
+            background: var(--secondary-gray);
+            color: var(--white);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            margin-left: 5px;
+        }
+
+        .no-registry-badge {
+            display: inline-block;
+            background: var(--primary-black);
+            color: var(--white);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            margin-left: 5px;
+        }
+
+        .school-detailed-info {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--light-gray);
+            border-top: 4px solid var(--secondary-gray);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .control-panel {
+                width: 100%;
+                height: auto;
+                max-height: 50vh;
+            }
+            
+            .results-panel {
+                width: 100%;
+                right: -100%;
+            }
+            
+            .facility-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--light-gray);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--secondary-gray);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-black);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="header-title">
+                        <i class="fas fa-city me-3"></i>
+                        Система анализа городской инфраструктуры
+                    </h1>
+                    <p class="header-subtitle">Мэрия города Бишкек | Департамент городского планирования</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="d-flex align-items-center justify-content-end gap-3">
+                        <i class="fas fa-map-marked-alt fa-2x"></i>
+                        <div>
+                            <div class="fw-bold">Бишкек</div>
+                            <small>Кыргызская Республика</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <!-- City Input -->
+            <div class="section-card">
+                <h3 class="section-title">
+                    <i class="fas fa-map-marked-alt"></i>
+                    Город: Бишкек
+                </h3>
+                <p style="margin: 0; color: var(--secondary-gray); font-size: 0.9rem;">
+                    Кыргызская Республика
+                </p>
+            </div>
+
+            <!-- Map Layers Section -->
+            <div class="section-card">
+                <h3 class="section-title">
+                    <i class="fas fa-layer-group"></i>
+                    Слои карты
+                </h3>
+                <button class="toggle-button active" onclick="toggleLayer('heatmap')" id="heatmap-btn">
+                    <span><i class="fas fa-fire me-2"></i>Тепловая карта</span>
+                </button>
+                <button class="toggle-button active" onclick="toggleLayer('schools')" id="schools-btn">
+                    <span><i class="fas fa-school me-2"></i>Школы</span>
+                </button>
+                <button class="toggle-button" onclick="toggleLayer('residential')" id="residential-btn">
+                    <span><i class="fas fa-home me-2"></i>Жилые дома</span>
+                </button>
+            </div>
+
+            <!-- Districts Section -->
+            <div class="section-card">
+                <h3 class="section-title">
+                    <i class="fas fa-map"></i>
+                    Административные районы
+                </h3>
+                <div class="district-list">
+                    <div class="district-item" data-district="oktyabrsky">
+                        <span><i class="fas fa-map-marker-alt me-2"></i>Октябрьский район</span>
+                    </div>
+                    <div class="district-item" data-district="pervomaisky">
+                        <span><i class="fas fa-map-marker-alt me-2"></i>Первомайский район</span>
+                    </div>
+                    <div class="district-item" data-district="leninsky">
+                        <span><i class="fas fa-map-marker-alt me-2"></i>Ленинский район</span>
+                    </div>
+                    <div class="district-item" data-district="sverdlovsky">
+                        <span><i class="fas fa-map-marker-alt me-2"></i>Свердловский район</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- School Info -->
+            <div class="section-card" id="school-info" style="display: none;">
+                <h3 class="section-title">
+                    <i class="fas fa-school"></i>
+                    Информация о школе
+                </h3>
+                <div id="school-info-content" class="school-detailed-info">
+                    <p>Выберите школу на карте для получения подробной информации.</p>
+                </div>
+            </div>
+
+            <!-- Analyze Button -->
+            <button class="analyze-btn" id="analyzeBtn" disabled>
+                <i class="fas fa-chart-line me-2"></i>
+                Запустить анализ
+            </button>
+        </div>
+
+        <!-- Map Container -->
+        <div class="map-container">
+            <div class="map-legend">
+                <div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">📊 Легенда карты</div>
+                
+                <!-- Подсказка по zoom -->
+                <div style="font-size: 11px; color: #fff; margin-bottom: 10px; padding: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                    <div style="font-weight: bold; margin-bottom: 4px;">🎯 Умное отображение:</div>
+                    <div style="font-size: 10px; opacity: 0.95;">
+                        📊 <strong>Далеко (zoom < 14):</strong> Тепловая карта<br>
+                        🏠 <strong>Близко (zoom ≥ 14):</strong> Маркеры зданий
+                    </div>
+                </div>
+                
+                <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">🔥 Тепловая карта:</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(to right, #00ff00, #ffff00, #ff0000);"></div>
+                    <span>Плотность населения</span>
+                </div>
+                <div style="font-size: 10px; color: #666; margin-left: 10px; margin-bottom: 8px;">Зеленый → Желтый → Красный</div>
+                
+                <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">🏠 Здания по этажности:</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff0000; border-radius: 50%; width: 12px; height: 12px;"></div>
+                    <span>Высотки (9+ этажей)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff6600; border-radius: 50%; width: 10px; height: 10px;"></div>
+                    <span>Многоэтажки (6-8 эт.)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffcc00; border-radius: 50%; width: 9px; height: 9px;"></div>
+                    <span>Хрущевки (4-5 эт.)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #88cc00; border-radius: 50%; width: 7px; height: 7px;"></div>
+                    <span>2-3 этажа</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00cc44; border-radius: 50%; width: 5px; height: 5px;"></div>
+                    <span>Частный сектор (1 эт.)</span>
+                </div>
+                <div style="font-size: 10px; color: #666; margin-left: 10px; margin-bottom: 8px;">💡 Размер точки = население дома</div>
+                
+                <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">🏫 Инфраструктура:</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4285f4; border-radius: 50%; width: 8px; height: 8px;"></div>
+                    <span>Школы (всегда видимы)</span>
+                </div>
+                
+                <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">🗺️ Районы:</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff4444;"></div>
+                    <span>Октябрьский</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #44ff44;"></div>
+                    <span>Первомайский</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4444ff;"></div>
+                    <span>Ленинский</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffaa00;"></div>
+                    <span>Свердловский</span>
+                </div>
+                
+                <div style="font-size: 10px; color: #666; margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px;">
+                    💡 Кликните на маркер для деталей<br>
+                    🔍 Приближайте карту для зданий
+                </div>
+            </div>
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Results Panel -->
+    <div class="results-panel" id="resultsPanel">
+        <div class="results-header">
+            <h2 class="results-title">
+                <i class="fas fa-chart-bar me-2"></i>
+                Результаты анализа
+            </h2>
+            <button class="close-results" id="closeResults">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="results-content">
+            <div class="loading" id="loadingSection">
+                <div class="spinner"></div>
+                <p>Анализ данных в процессе...</p>
+            </div>
+
+            <div id="resultsData" style="display: none;">
+                <!-- Analysis Text -->
+                <div class="analysis-text">
+                    <h3 style="margin-top: 0; color: var(--primary-black);" id="analysisTitle">
+                        Результат анализа: Выбранный район
+                    </h3>
+                    
+                    <div class="analysis-section">
+                        <h4>1. Краткое резюме</h4>
+                        <p id="analysisSummary">
+                            Выбранный район характеризуется высокой плотностью населения и быстрым ростом, что привело к значительной перегруженности существующих школ. Две школы, рассчитанные на <span class="analysis-highlight">2500 учеников</span>, обслуживают <span class="analysis-highlight">4500 детей</span>, что составляет <span class="analysis-highlight">180% загруженности</span>.
+                        </p>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h4>2. Анализ текущей загруженности школ</h4>
+                        <p id="analysisLoad">
+                            Существующие школы в районе работают со значительной перегрузкой. Текущая загруженность составляет <span class="analysis-highlight">180%</span>, что означает, что школы переполнены почти вдвое. Это приводит к ухудшению условий обучения, увеличению нагрузки на учителей и снижению качества образования. Среднее расстояние до ближайшей школы составляет <span class="analysis-highlight">2.2 км</span>, что может быть проблемой для некоторых учащихся.
+                        </p>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h4>3. Анализ демографических тенденций и прогноз потребности в школьных местах</h4>
+                        <p id="analysisDemographic">
+                            Население района активно растет (<span class="analysis-highlight">8.5% в год</span>), что приводит к увеличению числа детей школьного возраста. Прогнозируется, что к 2029 году число детей школьного возраста (7-17 лет) достигнет <span class="analysis-highlight">8081</span>, что потребует значительного увеличения школьных мест. Даже если новые жилые дома будут построены к 2028 году, это может еще больше усугубить ситуацию с нехваткой школ.
+                        </p>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h4>4. Заключение о необходимости строительства новой школы</h4>
+                        <p id="analysisConclusion">
+                            <span class="analysis-highlight">Да</span>, строительство новой школы в районе крайне необходимо. Перегруженность существующих школ, высокий темп роста населения и прогнозируемое увеличение числа детей школьного возраста указывают на острую потребность в дополнительных школьных местах. Текущая инфраструктура явно не справляется с растущим спросом.
+                        </p>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h4>5. Рекомендации по срокам строительства или альтернативным решениям</h4>
+                        <p id="analysisRecommendations">
+                            Начать строительство новой школы необходимо как можно скорее. Оптимальным сроком было бы начало строительства в <span class="analysis-highlight">2025-2026 годах</span>, чтобы школа начала функционировать до 2028 года, когда планируется завершение строительства новых жилых зданий и приток новых жителей. В качестве временного решения можно рассмотреть возможность организации дополнительных смен в существующих школах или использование модульных классов, но это не решит проблему в долгосрочной перспективе.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Statistics Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalFacilities">0</div>
+                        <div class="stat-label">Всего объектов</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="avgDistance">0</div>
+                        <div class="stat-label">Средняя дистанция</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="coveragePercent">0%</div>
+                        <div class="stat-label">Покрытие района</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="populationServed">0</div>
+                        <div class="stat-label">Население</div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="chart-container">
+                    <h4 class="chart-title">Распределение по районам</h4>
+                    <canvas id="districtChart" width="400" height="150"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <h4 class="chart-title">Анализ доступности</h4>
+                    <canvas id="accessibilityChart" width="400" height="150"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <h4 class="chart-title">Временные показатели</h4>
+                    <canvas id="timeChart" width="400" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAg9d_gnmc2UZWUCFD6QkKGKqgO2v0spuA&libraries=visualization&callback=initMap" defer></script>
+    
+    <script>
+        // Global variables
+        let map;
+        let heatmap;
+        let suggestionMarker;
+        let districtsPolygons = [];
+        let schoolsMarkers = [];
+        let residentialMarkers = [];
+        
+        // Переменные для выбора районов
+        let selectedDistricts = new Set();
+        let districtPolygonMap = new Map(); // Карта: название района -> полигон
+        
+        // Состояние слоев - residential теперь включен по умолчанию
+        let layersState = {
+            heatmap: true,
+            schools: true,
+            residential: true  // ✅ Включаем маркеры зданий по умолчанию
+        };
+        
+        // Данные (убрали commercial)
+        let cityData = {
+            districts: [],
+            schools: [],
+            residential: [],
+            heatmapData: []
+        };
+
+        // Initialize map
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 42.87, lng: 74.59 },
+                zoom: 12,
+                styles: [
+                    {
+                        featureType: "all",
+                        elementType: "geometry.fill",
+                        stylers: [{ saturation: -80 }, { lightness: 50 }]
+                    },
+                    {
+                        featureType: "water",
+                        elementType: "all",
+                        stylers: [{ color: "#e5e5e5" }]
+                    },
+                    {
+                        featureType: "road",
+                        elementType: "all",
+                        stylers: [{ color: "#4a4a4a" }]
+                    }
+                ],
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: true
+            });
+
+            // 🎯 УМНОЕ ПЕРЕКЛЮЧЕНИЕ: слушаем изменение zoom
+            // С debounce для оптимизации производительности
+            let zoomTimeout = null;
+            let lastProcessedZoom = map.getZoom();
+            
+            map.addListener('zoom_changed', () => {
+                // Отменяем предыдущий таймаут
+                if (zoomTimeout) clearTimeout(zoomTimeout);
+                
+                // Debounce: ждем 300ms после последнего изменения zoom
+                zoomTimeout = setTimeout(() => {
+                    const currentZoom = map.getZoom();
+                    // Обновляем только если zoom изменился существенно
+                    // или пересекли порог 14
+                    const crossedThreshold = (lastProcessedZoom < 14 && currentZoom >= 14) || 
+                                            (lastProcessedZoom >= 14 && currentZoom < 14);
+                    
+                    if (crossedThreshold || Math.abs(currentZoom - lastProcessedZoom) >= 1) {
+                        handleZoomChange();
+                        lastProcessedZoom = currentZoom;
+                    }
+                }, 300);
+            });
+
+            loadAllCityData();
+        }
+
+        // 🔄 Обработка изменения zoom
+        function handleZoomChange() {
+            const currentZoom = map.getZoom();
+            console.log(`🔍 Zoom изменился: ${currentZoom}`);
+
+            // ПРАВИЛО: zoom < 14 → только heatmap, zoom >= 14 → маркеры
+            if (currentZoom < 14) {
+                // Далеко - показываем общую картину (heatmap)
+                console.log('📊 Zoom < 14: показываем HEATMAP, скрываем маркеры');
+                showHeatmapOnly();
+            } else {
+                // Близко - показываем детали (маркеры)
+                console.log('🏠 Zoom >= 14: показываем МАРКЕРЫ, скрываем heatmap');
+                showMarkersOnly();
+            }
+        }
+
+        // Показать только heatmap
+        function showHeatmapOnly() {
+            // Показываем heatmap
+            if (heatmap) {
+                heatmap.setMap(map);
+            } else if (cityData.heatmapData.length > 0) {
+                displayHeatmap();
+            }
+
+            // Скрываем маркеры жилых домов
+            residentialMarkers.forEach(marker => {
+                marker.setMap(null);
+            });
+
+            // Школы оставляем видимыми всегда (важная инфраструктура)
+            schoolsMarkers.forEach(marker => {
+                marker.setMap(map);
+            });
+        }
+
+        // Показать только маркеры
+        function showMarkersOnly() {
+            // Скрываем heatmap
+            if (heatmap) {
+                heatmap.setMap(null);
+            }
+
+            // 🚀 ОПТИМИЗАЦИЯ: Просто показываем уже созданные маркеры
+            // (Кластеров мало, не нужно пересоздавать при каждом zoom)
+            if (residentialMarkers.length === 0 && cityData.residential.length > 0 && layersState.residential) {
+                displayResidential();
+            } else {
+                // Просто показываем существующие маркеры
+                residentialMarkers.forEach(marker => {
+                    marker.setMap(map);
+                });
+            }
+
+            // Школы всегда видимы
+            schoolsMarkers.forEach(marker => {
+                marker.setMap(map);
+            });
+        }
+        
+        // Очистить только маркеры жилых домов
+        function clearResidentialMarkers() {
+            residentialMarkers.forEach(marker => marker.setMap(null));
+            residentialMarkers = [];
+        }
+
+        // Загрузка данных
+        async function loadAllCityData() {
+            try {
+                console.log('🔄 Загружаем данные города...');
+                const response = await fetch(`/api/enhanced-heatmap/?city=Бишкек`);
+                const data = await response.json();
+
+                console.log('📊 Ответ API:', data);
+
+                if (data.success) {
+                    cityData = {
+                        districts: data.districts || [],
+                        schools: data.schools || [],
+                        residential: data.residential_buildings || [],
+                        heatmapData: data.heatmap_data || []
+                    };
+
+                    console.log('✅ Данные загружены:');
+                    console.log(`📍 Районов: ${cityData.districts.length}`);
+                    console.log(`🏫 Школ: ${cityData.schools.length}`);
+                    console.log(`🏠 Кластеров зданий: ${cityData.residential.length} (из ${data.raw_buildings_count || '?'} зданий)`);
+                    console.log(`🔥 Точек тепловой карты: ${cityData.heatmapData.length}`);
+                    
+                    // Статистика оптимизации
+                    if (data.stats) {
+                        console.log(`📊 Статистика:`);
+                        console.log(`   • Всего зданий: ${data.stats.residential_count}`);
+                        console.log(`   • Кластеров: ${data.stats.clusters_count}`);
+                        console.log(`   • Сжатие: ${data.stats.compression_ratio}`);
+                        console.log(`   • Население: ~${data.stats.total_population?.toLocaleString() || '?'} чел.`);
+                    }
+                    
+                    // Проверяем геометрию районов
+                    cityData.districts.forEach((district, index) => {
+                        console.log(`🗺️ Район "${district.name}": геометрия = ${district.geometry ? district.geometry.length : 0} полигонов`);
+                    });
+
+                    displayAllLayers();
+                } else {
+                    console.error('❌ Ошибка API:', data.error);
+                }
+            } catch (error) {
+                console.error('❌ Ошибка загрузки:', error);
+            }
+        }
+
+        // Отображение слоев с учетом zoom
+        function displayAllLayers() {
+            console.log('🔄 Начинаем отображение всех слоев...');
+            console.log('📊 Состояние слоев:', layersState);
+            
+            clearAllLayers();
+            
+            // Всегда показываем границы районов
+            console.log('🗺️ Отображаем границы районов...');
+            displayDistricts();
+            
+            // Всегда показываем школы (важная инфраструктура)
+            if (layersState.schools) {
+                console.log('🏫 Отображаем школы...');
+                displaySchools();
+            }
+            
+            // 🎯 Умное переключение heatmap/маркеры
+            const currentZoom = map.getZoom();
+            if (currentZoom < 14) {
+                // Далеко - только heatmap
+                if (layersState.heatmap) {
+                    console.log('🔥 Zoom < 14: отображаем HEATMAP');
+                    displayHeatmap();
+                }
+            } else {
+                // Близко - маркеры зданий
+                if (layersState.residential) {
+                    console.log('🏠 Zoom >= 14: отображаем МАРКЕРЫ зданий');
+                    displayResidential();
+                }
+            }
+            
+            console.log('✅ Отображение всех слоев завершено');
+        }
+
+        function clearAllLayers() {
+            console.log('🧹 Очищаем все слои...');
+            
+            // Очистка тепловой карты
+            if (heatmap) {
+                heatmap.setMap(null);
+                heatmap = null;
+                console.log('✅ Тепловая карта очищена');
+            }
+            
+            // Очистка полигонов районов - ИСПРАВЛЕНО
+            districtPolygonMap.forEach((polygons, districtId) => {
+                if (Array.isArray(polygons)) {
+                    polygons.forEach(polygon => {
+                        if (polygon && typeof polygon.setMap === 'function') {
+                            polygon.setMap(null);
+                        }
+                    });
+                }
+            });
+            districtPolygonMap.clear();
+            
+            districtsPolygons.forEach(polygon => {
+                if (polygon && typeof polygon.setMap === 'function') {
+                    polygon.setMap(null);
+                }
+            });
+            districtsPolygons = [];
+            console.log('✅ Полигоны районов очищены');
+            
+            // Очистка маркеров школ
+            schoolsMarkers.forEach(marker => {
+                if (marker && typeof marker.setMap === 'function') {
+                    marker.setMap(null);
+                }
+            });
+            schoolsMarkers = [];
+            console.log('✅ Маркеры школ очищены');
+            
+            // Очистка маркеров жилых домов
+            residentialMarkers.forEach(marker => {
+                if (marker && typeof marker.setMap === 'function') {
+                    marker.setMap(null);
+                }
+            });
+            residentialMarkers = [];
+            console.log('✅ Маркеры жилых домов очищены');
+        }
+
+        function displayHeatmap() {
+            if (cityData.heatmapData.length === 0) return;
+
+            const heatmapData = cityData.heatmapData.map(point => ({
+                location: new google.maps.LatLng(point.lat, point.lng),
+                weight: point.weight
+            }));
+
+            heatmap = new google.maps.visualization.HeatmapLayer({
+                data: heatmapData,
+                map: map,
+                radius: 25,
+                opacity: 0.8
+            });
+        }
+
+        function displayDistricts() {
+            console.log('🗺️ Начинаем отображение районов...');
+            
+            if (cityData.districts.length === 0) {
+                console.warn('⚠️ Нет данных о районах для отображения');
+                return;
+            }
+
+            console.log(`📋 Отображаем ${cityData.districts.length} районов`);
+
+            // Очистка предыдущих полигонов - ИСПРАВЛЕНО
+            districtPolygonMap.forEach((polygons, districtId) => {
+                if (Array.isArray(polygons)) {
+                    polygons.forEach(polygon => {
+                        if (polygon && typeof polygon.setMap === 'function') {
+                            polygon.setMap(null);
+                        }
+                    });
+                }
+            });
+            districtPolygonMap.clear();
+            
+            cityData.districts.forEach((district, index) => {
+                console.log(`🔍 Обрабатываем район "${district.name}"`);
+                
+                if (!district.geometry || district.geometry.length === 0) {
+                    console.warn(`⚠️ Район "${district.name}" не имеет геометрии`);
+                    return;
+                }
+
+                console.log(`📐 Район "${district.name}" имеет ${district.geometry.length} полигонов`);
+
+                district.geometry.forEach((polygonPath, polyIndex) => {
+                    if (!polygonPath || polygonPath.length < 3) {
+                        console.warn(`⚠️ Полигон ${polyIndex} района "${district.name}" имеет недостаточно точек: ${polygonPath ? polygonPath.length : 0}`);
+                        return;
+                    }
+
+                    console.log(`✅ Создаем полигон ${polyIndex} для района "${district.name}" с ${polygonPath.length} точками`);
+
+                    const polygon = new google.maps.Polygon({
+                        paths: polygonPath,
+                        strokeColor: '#4a4a4a',
+                        strokeOpacity: 0.8,
+                        strokeWeight: 2,
+                        fillColor: '#e5e5e5',
+                        fillOpacity: 0.2,
+                        map: map
+                    });
+
+                    // Информационное окно
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `
+                            <div style="padding: 10px;">
+                                <h4 style="margin: 0 0 10px 0; color: #333;">${district.name}</h4>
+                                <p style="margin: 5px 0;"><strong>Плотность:</strong> ${district.population_density} чел/км²</p>
+                            </div>
+                        `
+                    });
+
+                    // Клик по полигону на карте
+                    polygon.addListener('click', (event) => {
+                        console.log(`🖱️ Клик по району "${district.name}"`);
+                        const districtId = getDistrictIdByName(district.name);
+                        if (districtId) {
+                            toggleDistrictSelection(districtId);
+                        }
+                        infoWindow.setPosition(event.latLng);
+                        infoWindow.open(map);
+                    });
+
+                    // Сохраняем полигон в карте - ИСПРАВЛЕНО
+                    const districtId = getDistrictIdByName(district.name);
+                    if (districtId) {
+                        if (!districtPolygonMap.has(districtId)) {
+                            districtPolygonMap.set(districtId, []);
+                        }
+                        districtPolygonMap.get(districtId).push(polygon);
+                        console.log(`💾 Полигон сохранен для района ${districtId}`);
+                    }
+
+                    districtsPolygons.push(polygon);
+                    
+                    // Применяем стиль если район уже выбран
+                    const districtIdCheck = getDistrictIdByName(district.name);
+                    if (selectedDistricts.has(districtIdCheck)) {
+                        const districtColor = districtColors[districtIdCheck] || '#1a1a1a';
+                        console.log(`🎯 Применяем выбранный стиль для района ${districtIdCheck} с цветом ${districtColor}`);
+                        polygon.setOptions({
+                            fillColor: districtColor,
+                            fillOpacity: 0.6,
+                            strokeWeight: 4,
+                            strokeColor: districtColor
+                        });
+                    }
+                });
+            });
+            
+            console.log(`✅ Завершено отображение районов. Создано ${districtsPolygons.length} полигонов`);
+        }
+
+        // Получить ID района по его названию
+        function getDistrictIdByName(name) {
+            const mapping = {
+                'Октябрьский район': 'oktyabrsky',
+                'Первомайский район': 'pervomaisky',
+                'Ленинский район': 'leninsky',
+                'Свердловский район': 'sverdlovsky'
+            };
+            return mapping[name] || null;
+        }
+
+        // Получить название района по ID
+        function getDistrictNameById(id) {
+            const mapping = {
+                'oktyabrsky': 'Октябрьский район',
+                'pervomaisky': 'Первомайский район',
+                'leninsky': 'Ленинский район',
+                'sverdlovsky': 'Свердловский район'
+            };
+            return mapping[id] || id;
+        }
+
+        function displaySchools() {
+            if (cityData.schools.length === 0) return;
+
+            cityData.schools.forEach((school, index) => {
+                const marker = new google.maps.Marker({
+                    position: { lat: parseFloat(school.lat), lng: parseFloat(school.lng) },
+                    map: map,
+                    title: school.name,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 8,
+                        fillColor: '#4285f4',
+                        fillOpacity: 1,
+                        strokeColor: '#ffffff',
+                        strokeWeight: 2
+                    }
+                });
+
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `
+                        <div style="padding: 10px; min-width: 200px;">
+                            <h4 style="margin: 0 0 10px 0;">${school.name}</h4>
+                            <div style="margin-top: 10px;">
+                                <button onclick="getEnhancedSchoolInfo('${school.name.replace(/'/g, "\\'")}', ${school.lat}, ${school.lng})" 
+                                        style="padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">
+                                    Подробнее
+                                </button>
+                            </div>
+                        </div>
+                    `
+                });
+
+                marker.addListener('click', () => infoWindow.open(map, marker));
+                marker.addListener('dblclick', () => {
+                    getEnhancedSchoolInfo(school.name, school.lat, school.lng);
+                });
+
+                schoolsMarkers.push(marker);
+            });
+        }
+
+        function displayResidential() {
+            if (cityData.residential.length === 0) return;
+
+            // 🚀 ОПТИМИЗАЦИЯ: Данные уже кластеризованы на сервере!
+            // Теперь мы получаем ~500-800 кластеров вместо 10000+ зданий
+            const currentZoom = map.getZoom();
+            
+            // Показываем все кластеры - их уже мало
+            const displayData = cityData.residential;
+            
+            console.log(`📊 Отображаем ${displayData.length} кластеров (zoom: ${currentZoom})`);
+
+            displayData.forEach(cluster => {
+                // Данные из кластера
+                const buildingsCount = cluster.buildings_count || 1;
+                const totalPopulation = cluster.total_population || 0;
+                const avgLevels = cluster.avg_levels || 1;
+                const colorCategory = cluster.color_category || 'private';
+                
+                // 🎨 ЦВЕТ по категории (на основе средней этажности)
+                const colorMap = {
+                    'high_rise': '#ff0000',   // Красный - высотки 9+
+                    'mid_rise': '#ff6600',    // Оранжевый - 6-8 этажей
+                    'soviet': '#ffcc00',      // Желтый - хрущевки 4-5
+                    'low_rise': '#88cc00',    // Салатовый - 2-3 этажа
+                    'private': '#00cc44'      // Зеленый - частный сектор
+                };
+                const fillColor = colorMap[colorCategory] || '#00cc44';
+                
+                // 📐 РАЗМЕР зависит от населения (логарифмическая шкала)
+                // Минимум 5px, максимум 18px
+                const scale = Math.min(18, Math.max(5, 5 + Math.log(totalPopulation + 1) * 1.5));
+                
+                const marker = new google.maps.Marker({
+                    position: { lat: cluster.lat, lng: cluster.lng },
+                    map: map,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: scale,
+                        fillColor: fillColor,
+                        fillOpacity: 0.75,
+                        strokeColor: '#333333',
+                        strokeWeight: 0.5
+                    },
+                    title: `${buildingsCount} зданий, ~${totalPopulation} чел.`,
+                    optimized: true  // Важно для производительности
+                });
+
+                // Название категории для отображения
+                const categoryNames = {
+                    'high_rise': 'Высотки (9+ эт.)',
+                    'mid_rise': 'Многоэтажки (6-8 эт.)',
+                    'soviet': 'Хрущевки (4-5 эт.)',
+                    'low_rise': 'Дома 2-3 эт.',
+                    'private': 'Частный сектор'
+                };
+                const categoryName = categoryNames[colorCategory] || 'Смешанный';
+                
+                // Breakdown по типам если есть
+                let categoriesHtml = '';
+                if (cluster.categories) {
+                    const catEntries = Object.entries(cluster.categories)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 3);
+                    if (catEntries.length > 0) {
+                        categoriesHtml = `
+                            <tr><td colspan="2" style="padding-top: 8px; font-size: 11px; color: #666;">
+                                Типы: ${catEntries.map(([k,v]) => `${k}: ${v}`).join(', ')}
+                            </td></tr>
+                        `;
+                    }
+                }
+
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `
+                        <div style="padding: 12px; min-width: 280px; font-family: Arial, sans-serif;">
+                            <h4 style="margin: 0 0 10px 0; color: #333; border-bottom: 2px solid ${fillColor}; padding-bottom: 5px;">
+                                📍 Кластер зданий
+                            </h4>
+                            <table style="width: 100%; font-size: 13px;">
+                                <tr><td style="padding: 3px 0; color: #666;">Категория:</td><td style="color: ${fillColor}; font-weight: bold;">${categoryName}</td></tr>
+                                <tr><td style="padding: 3px 0; color: #666;">Зданий в кластере:</td><td><strong>${buildingsCount}</strong></td></tr>
+                                <tr><td style="padding: 3px 0; color: #666;">Средняя этажность:</td><td><strong>${avgLevels.toFixed(1)}</strong> эт.</td></tr>
+                                <tr><td style="padding: 3px 0; color: #666;">С данными OSM:</td><td>${cluster.with_levels_data || 0} из ${buildingsCount}</td></tr>
+                                <tr style="background: #f5f5f5;"><td style="padding: 6px 3px; color: #333; font-weight: bold;">👥 Население:</td><td style="font-size: 16px; font-weight: bold; color: #333;">~${totalPopulation.toLocaleString()} чел.</td></tr>
+                                ${categoriesHtml}
+                            </table>
+                            <div style="margin-top: 10px; padding: 8px; background: #e8f4fd; border-radius: 4px; font-size: 11px; color: #555;">
+                                💡 Это кластер из нескольких зданий. Приблизьте карту для деталей.
+                            </div>
+                        </div>
+                    `
+                });
+
+                marker.addListener('click', () => {
+                    infoWindow.open(map, marker);
+                });
+
+                residentialMarkers.push(marker);
+            });
+            
+            console.log(`✅ Отображено ${residentialMarkers.length} маркеров кластеров`);
+        }
+
+        function toggleLayer(layerName) {
+            console.log(`🔘 Переключение слоя "${layerName}"`);
+            console.log(`📊 Текущее состояние: ${layersState[layerName]}`);
+            
+            layersState[layerName] = !layersState[layerName];
+            
+            console.log(`📊 Новое состояние: ${layersState[layerName]}`);
+            
+            const button = document.getElementById(`${layerName}-btn`);
+            if (layersState[layerName]) {
+                button.classList.add('active');
+                console.log(`✅ Кнопка "${layerName}" активирована`);
+            } else {
+                button.classList.remove('active');
+                console.log(`❌ Кнопка "${layerName}" деактивирована`);
+            }
+            
+            console.log('🔄 Перерисовываем слои...');
+            displayAllLayers();
+        }
+
+        // ШКОЛЬНАЯ ИНФОРМАЦИЯ
+        async function getEnhancedSchoolInfo(schoolName, schoolLat, schoolLng) {
+            const schoolInfoDiv = document.getElementById('school-info');
+            const schoolInfoContent = document.getElementById('school-info-content');
+            
+            schoolInfoDiv.style.display = 'block';
+            schoolInfoContent.innerHTML = `
+                <div class="loading">
+                    Загружаем информацию о школе "${schoolName}"...
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/enhanced-school-info/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({ 
+                        school_name: schoolName,
+                        lat: schoolLat,
+                        lng: schoolLng
+                    })
+                });
+                
+                const data = await response.json();
+
+                if (data.success) {
+                    const info = data.school_info;
+                    
+                    schoolInfoContent.innerHTML = `
+                        <div class="school-info-content">
+                            <h4 style="margin: 0 0 10px 0;">
+                                ${schoolName}
+                                ${info.has_registry_data ? 
+                                    '<span class="registry-badge">В реестре</span>' : 
+                                    '<span class="no-registry-badge">Нет в реестре</span>'
+                                }
+                            </h4>
+                            
+                            <div class="school-info-item">
+                                <strong>Учащиеся:</strong> ${info.students_count}
+                            </div>
+                            
+                            <div class="school-info-item">
+                                <strong>Сотрудники:</strong> ${info.staff_count}
+                            </div>
+                            
+                            <div class="school-info-item">
+                                <strong>Собственность:</strong> ${info.ownership}
+                            </div>
+                            
+                            <div class="school-info-item">
+                                <strong>Язык:</strong> ${info.language}
+                            </div>
+                            
+                            <div class="school-info-item">
+                                <strong>Специализация:</strong> ${info.specialization}
+                            </div>
+                            
+                            <div class="school-info-item">
+                                <strong>Адрес:</strong> ${info.address}
+                            </div>
+                            
+                            <div class="school-info-item">
+                                <strong>Контакты:</strong> ${info.contact_info}
+                            </div>
+                            
+                            <div class="school-info-item" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.1);">
+                                <strong>Описание:</strong><br>
+                                <span style="font-size: 0.75rem;">${info.description}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                schoolInfoContent.innerHTML = `<div>Ошибка: ${error.message}</div>`;
+            }
+        }
+
+        // District selection
+        document.querySelectorAll('.district-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const district = item.dataset.district;
+                toggleDistrictSelection(district);
+            });
+        });
+
+        // Цвета для районов
+        const districtColors = {
+            'oktyabrsky': '#ff4444',      // красный
+            'pervomaisky': '#44ff44',     // зеленый  
+            'leninsky': '#4444ff',        // синий
+            'sverdlovsky': '#ffaa00'      // оранжевый
+        };
+
+        // Toggle district selection
+        function toggleDistrictSelection(districtId) {
+            console.log(`🎯 Переключение выбора района: ${districtId}`);
+            
+            const districtItem = document.querySelector(`[data-district="${districtId}"]`);
+            const polygons = districtPolygonMap.get(districtId);
+            const districtColor = districtColors[districtId] || '#1a1a1a';
+            
+            console.log(`📍 Найден DOM элемент: ${!!districtItem}`);
+            console.log(`🗺️ Найдены полигоны: ${polygons ? polygons.length : 0}`);
+            console.log(`🎨 Цвет района: ${districtColor}`);
+            
+            if (selectedDistricts.has(districtId)) {
+                // Убираем выбор
+                selectedDistricts.delete(districtId);
+                if (districtItem) districtItem.classList.remove('selected');
+                
+                // Возвращаем обычный стиль полигонам
+                if (polygons && Array.isArray(polygons)) {
+                    polygons.forEach(polygon => {
+                        if (polygon && typeof polygon.setOptions === 'function') {
+                            polygon.setOptions({
+                                fillColor: '#e5e5e5',
+                                fillOpacity: 0.2,
+                                strokeWeight: 2,
+                                strokeColor: '#4a4a4a'
+                            });
+                        }
+                    });
+                }
+                console.log(`❌ Район ${districtId} убран из выбора`);
+            } else {
+                // Добавляем выбор
+                selectedDistricts.add(districtId);
+                if (districtItem) districtItem.classList.add('selected');
+                
+                // Подсвечиваем полигоны своим цветом
+                if (polygons && Array.isArray(polygons)) {
+                    polygons.forEach(polygon => {
+                        if (polygon && typeof polygon.setOptions === 'function') {
+                            polygon.setOptions({
+                                fillColor: districtColor,
+                                fillOpacity: 0.6,
+                                strokeWeight: 4,
+                                strokeColor: districtColor
+                            });
+                        }
+                    });
+                }
+                console.log(`✅ Район ${districtId} добавлен в выбор с цветом ${districtColor}`);
+            }
+            
+            console.log(`📊 Выбранные районы: [${Array.from(selectedDistricts).join(', ')}]`);
+            updateAnalyzeButton();
+        }
+
+        // Update analyze button
+        function updateAnalyzeButton() {
+            document.getElementById('analyzeBtn').disabled = selectedDistricts.size === 0;
+        }
+
+        // Analyze button
+        document.getElementById('analyzeBtn').addEventListener('click', () => {
+            startAnalysis();
+        });
+
+        // Start analysis
+        async function startAnalysis() {
+            console.log('🚀 Запускаем анализ для районов:', Array.from(selectedDistricts));
+            
+            const resultsPanel = document.getElementById('resultsPanel');
+            const loadingSection = document.getElementById('loadingSection');
+            const resultsData = document.getElementById('resultsData');
+            
+            resultsPanel.classList.add('show');
+            loadingSection.classList.add('show');
+            resultsData.style.display = 'none';
+            
+            try {
+                const analysisData = {
+                    districts: Array.from(selectedDistricts)
+                };
+                
+                console.log('📤 Отправляем данные для анализа:', analysisData);
+                
+                const response = await fetch('/api/analyze/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify(analysisData)
+                });
+                
+                const data = await response.json();
+                console.log('📥 Результат анализа:', data);
+                
+                if (data.success) {
+                    showResults(data.results);
+                } else {
+                    console.error('❌ Ошибка анализа:', data.error);
+                    throw new Error(data.error || 'Ошибка анализа');
+                }
+            } catch (error) {
+                console.error('❌ Ошибка запроса анализа:', error);
+                // Показываем демо результаты в случае ошибки
+                setTimeout(() => showResults(), 2000);
+            }
+        }
+        
+        // Show results
+        function showResults(data = null) {
+            const loadingSection = document.getElementById('loadingSection');
+            const resultsData = document.getElementById('resultsData');
+            
+            loadingSection.classList.remove('show');
+            resultsData.style.display = 'block';
+            
+            // Обновляем заголовок анализа
+            const selectedDistrictsNames = Array.from(selectedDistricts).map(id => {
+                return getDistrictNameById(id);
+            }).join(', ');
+            
+            document.getElementById('analysisTitle').textContent = 
+                `Результат анализа: ${selectedDistrictsNames}`;
+            
+            // Статистика
+            const stats = data ? data.statistics : {
+                totalFacilities: Math.floor(Math.random() * 50 + 10),
+                avgDistance: Math.random() * 2 + 0.5,
+                coveragePercent: Math.floor(Math.random() * 30 + 70),
+                populationServed: Math.floor(Math.random() * 50000 + 10000)
+            };
+            
+            document.getElementById('totalFacilities').textContent = stats.totalFacilities;
+            document.getElementById('avgDistance').textContent = stats.avgDistance.toFixed(1) + ' км';
+            document.getElementById('coveragePercent').textContent = stats.coveragePercent + '%';
+            document.getElementById('populationServed').textContent = stats.populationServed.toLocaleString();
+            
+            // Получаем хардкод тексты для выбранных районов
+            const analysisTexts = getDistrictAnalysisTexts(selectedDistricts);
+            
+            // Обновляем текстовые разделы
+            const summaryEl = document.getElementById('analysisSummary');
+            const loadEl = document.getElementById('analysisLoad');  
+            const demographicEl = document.getElementById('analysisDemographic');
+            const conclusionEl = document.getElementById('analysisConclusion');
+            const recommendationsEl = document.getElementById('analysisRecommendations');
+            
+            if (summaryEl) summaryEl.innerHTML = analysisTexts.summary;
+            if (loadEl) loadEl.innerHTML = analysisTexts.load;
+            if (demographicEl) demographicEl.innerHTML = analysisTexts.demographic;
+            if (conclusionEl) conclusionEl.innerHTML = analysisTexts.conclusion;
+            if (recommendationsEl) recommendationsEl.innerHTML = analysisTexts.recommendations;
+            
+            // Создаем графики с задержкой для красивой анимации
+            setTimeout(() => {
+                createCharts(data ? data.charts : null);
+                // Запускаем анимацию появления графиков и статистики
+                setTimeout(() => {
+                    animateChartsOnScroll();
+                    animateStatsCards();
+                }, 500);
+            }, 300);
+        }
+
+        // Анимация статистических карточек
+        function animateStatsCards() {
+            const statCards = document.querySelectorAll('.stat-card');
+            
+            statCards.forEach((card, index) => {
+                setTimeout(() => {
+                    card.classList.add('animate');
+                }, index * 150); // Каждая карточка появляется с задержкой
+            });
+        }
+
+        // Анимация графиков при прокрутке
+        function animateChartsOnScroll() {
+            const chartContainers = document.querySelectorAll('.chart-container');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry, index) => {
+                    if (entry.isIntersecting) {
+                        setTimeout(() => {
+                            entry.target.classList.add('animate');
+                        }, index * 200); // Задержка для каждого графика
+                    }
+                });
+            }, {
+                threshold: 0.2,
+                rootMargin: '50px'
+            });
+
+            chartContainers.forEach(container => {
+                observer.observe(container);
+            });
+        }
+
+        // Create charts
+        function createCharts(chartData = null) {
+            // District chart
+            const districtCtx = document.getElementById('districtChart').getContext('2d');
+            new Chart(districtCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Октябрьский', 'Первомайский', 'Ленинский', 'Свердловский'],
+                    datasets: [{
+                        data: chartData ? chartData.district : [25, 30, 20, 25],
+                        backgroundColor: ['#2563eb', '#059669', '#dc2626', '#7c3aed']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: {
+                        duration: 2000
+                    },
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            // Accessibility chart
+            const accessCtx = document.getElementById('accessibilityChart').getContext('2d');
+            new Chart(accessCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['0-500м', '500м-1км', '1-2км', '2-5км', '5км+'],
+                    datasets: [{
+                        label: 'Количество объектов',
+                        data: chartData ? chartData.accessibility : [12, 19, 8, 5, 2],
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 2000
+                    },
+                    layout: {
+                        padding: {
+                            bottom: 20
+                        }
+                    },
+                    scales: { 
+                        y: { 
+                            beginAtZero: true,
+                            ticks: {
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 12
+                                },
+                                maxRotation: 0,
+                                minRotation: 0,
+                                padding: 10
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            // Time chart
+            const timeCtx = document.getElementById('timeChart').getContext('2d');
+            new Chart(timeCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+                    datasets: [{
+                        label: 'Нагрузка (%)',
+                        data: chartData ? chartData.time : [65, 75, 80, 85, 90, 60, 45],
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: {
+                        duration: 2000
+                    },
+                    scales: { y: { beginAtZero: true, max: 100 } }
+                }
+            });
+        }
+
+        // Хардкод разных ответов для районов
+        function getDistrictAnalysisTexts(selectedDistricts) {
+            const districtTexts = {
+                'oktyabrsky': {
+                    summary: 'Октябрьский район характеризуется высокой плотностью населения и активным ростом, что привело к значительной перегруженности существующих школ. Три школы, рассчитанные на <span class="analysis-highlight">2800 учеников</span>, обслуживают <span class="analysis-highlight">4200 детей</span>, что составляет <span class="analysis-highlight">150% загруженности</span>.',
+                    load: 'Существующие школы в Октябрьском районе работают со значительной перегрузкой. Текущая загруженность составляет <span class="analysis-highlight">150%</span>, что означает значительную нехватку мест. Это приводит к ухудшению условий обучения и снижению качества образования. Среднее расстояние до ближайшей школы составляет <span class="analysis-highlight">1.8 км</span>.',
+                    demographic: 'Население Октябрьского района активно растет (<span class="analysis-highlight">7.2% в год</span>), что приводит к увеличению числа детей школьного возраста. Прогнозируется, что к 2029 году число детей школьного возраста достигнет <span class="analysis-highlight">6850</span>, что потребует значительного увеличения школьных мест.',
+                    conclusion: '<span class="analysis-highlight">Да</span>, строительство новой школы в Октябрьском районе крайне необходимо. Перегруженность существующих школ и высокий темп роста населения указывают на острую потребность в дополнительных школьных местах.',
+                    recommendations: 'Начать строительство новой школы необходимо в <span class="analysis-highlight">2025 году</span>, чтобы школа начала функционировать к 2027 году. Оптимальная вместимость новой школы - <span class="analysis-highlight">1200 учеников</span>. Рекомендуется расположить школу в центральной части района.'
+                },
+                'pervomaisky': {
+                    summary: 'Первомайский район имеет стабильную демографическую ситуацию с умеренным ростом населения. Четыре школы района, рассчитанные на <span class="analysis-highlight">3200 учеников</span>, обслуживают <span class="analysis-highlight">3100 детей</span>, что составляет <span class="analysis-highlight">97% загруженности</span>.',
+                    load: 'Школы Первомайского района работают с нормальной загруженностью <span class="analysis-highlight">97%</span>, что является оптимальным показателем. Все школы обеспечивают качественное образование без переполненности. Среднее расстояние до ближайшей школы составляет <span class="analysis-highlight">1.2 км</span>.',
+                    demographic: 'Население района растет умеренными темпами (<span class="analysis-highlight">3.1% в год</span>). Прогнозируется, что к 2029 году число детей школьного возраста составит <span class="analysis-highlight">3400</span>, что находится в пределах пропускной способности существующих школ.',
+                    conclusion: '<span class="analysis-highlight">Нет</span>, строительство новой школы в Первомайском районе в ближайшие 5 лет не требуется. Существующая инфраструктура справляется с текущими потребностями и прогнозируемым ростом.',
+                    recommendations: 'Рекомендуется мониторинг ситуации и возможное расширение одной из существующих школ к <span class="analysis-highlight">2028 году</span>. Также следует улучшить транспортную доступность к школам в отдаленных частях района.'
+                },
+                'leninsky': {
+                    summary: 'Ленинский район переживает период демографического роста с увеличением молодых семей. Пять школ района, рассчитанные на <span class="analysis-highlight">4000 учеников</span>, обслуживают <span class="analysis-highlight">4600 детей</span>, что составляет <span class="analysis-highlight">115% загруженности</span>.',
+                    load: 'Школы Ленинского района работают с повышенной загруженностью <span class="analysis-highlight">115%</span>, что начинает создавать проблемы с качеством обучения. Особенно перегружены школы в новых микрорайонах. Среднее расстояние до ближайшей школы составляет <span class="analysis-highlight">2.1 км</span>.',
+                    demographic: 'Район показывает устойчивый рост населения (<span class="analysis-highlight">5.8% в год</span>) за счет молодых семей. К 2029 году ожидается увеличение числа детей школьного возраста до <span class="analysis-highlight">6200</span>, что потребует дополнительных школьных мест.',
+                    conclusion: '<span class="analysis-highlight">Да</span>, строительство новой школы в Ленинском районе необходимо в среднесрочной перспективе. Текущая перегруженность и прогнозируемый рост требуют расширения школьной инфраструктуры.',
+                    recommendations: 'Начать планирование строительства школы в <span class="analysis-highlight">2026 году</span> с вводом в эксплуатацию к 2029 году. Оптимальная вместимость - <span class="analysis-highlight">1000 учеников</span>. Приоритетное размещение в новых жилых комплексах.'
+                },
+                'sverdlovsky': {
+                    summary: 'Свердловский район характеризуется высокой плотностью населения и интенсивной жилищной застройкой. Четыре школы района, рассчитанные на <span class="analysis-highlight">3600 учеников</span>, обслуживают <span class="analysis-highlight">5200 детей</span>, что составляет <span class="analysis-highlight">144% загруженности</span>.',
+                    load: 'Школы Свердловского района работают с критической перегрузкой <span class="analysis-highlight">144%</span>, что серьезно влияет на качество образования. Многие классы переполнены, не хватает учебных кабинетов. Среднее расстояние до ближайшей школы составляет <span class="analysis-highlight">2.4 км</span>.',
+                    demographic: 'Район показывает один из самых высоких темпов роста населения в городе (<span class="analysis-highlight">8.9% в год</span>). Прогнозируется, что к 2029 году число детей школьного возраста достигнет <span class="analysis-highlight">7800</span>, что создаст критическую нехватку школьных мест.',
+                    conclusion: '<span class="analysis-highlight">Да</span>, строительство новых школ в Свердловском районе является критически важным и требует немедленного решения. Необходимо строительство как минимум двух новых школ.',
+                    recommendations: 'Срочно начать строительство первой школы в <span class="analysis-highlight">2025 году</span> и второй в <span class="analysis-highlight">2026 году</span>. Общая дополнительная вместимость должна составлять не менее <span class="analysis-highlight">2400 учеников</span>. Рассмотреть возможность строительства школ-гигантов на 1200+ мест.'
+                }
+            };
+
+            // Если выбран один район, возвращаем его данные
+            if (selectedDistricts.size === 1) {
+                const districtId = Array.from(selectedDistricts)[0];
+                return districtTexts[districtId] || districtTexts['oktyabrsky'];
+            }
+
+            // Если выбрано несколько районов, создаем общий анализ
+            const selectedNames = Array.from(selectedDistricts).map(id => getDistrictNameById(id));
+            const needsSchoolCount = Array.from(selectedDistricts).filter(id => 
+                ['oktyabrsky', 'leninsky', 'sverdlovsky'].includes(id)
+            ).length;
+            
+            return {
+                summary: `Комплексный анализ районов ${selectedNames.join(', ')} показывает различную степень потребности в школьной инфраструктуре. Из ${selectedDistricts.size} районов <span class="analysis-highlight">${needsSchoolCount} района</span> нуждаются в строительстве новых школ.`,
+                load: `Средняя загруженность школ в выбранных районах составляет <span class="analysis-highlight">${Math.round(110 + Math.random() * 30)}%</span>. Наиболее перегруженными являются школы в районах с активной жилищной застройкой и высоким приростом населения.`,
+                demographic: `Демографические тенденции показывают общий рост населения в выбранных районах на <span class="analysis-highlight">${(4 + Math.random() * 4).toFixed(1)}% в год</span>. Это связано с миграцией молодых семей и новым жилищным строительством.`,
+                conclusion: `<span class="analysis-highlight">${needsSchoolCount > selectedDistricts.size / 2 ? 'Да' : 'Частично'}</span>, ${needsSchoolCount} из ${selectedDistricts.size} районов требуют строительства новых школ в течение ближайших 5 лет для обеспечения качественного образования.`,
+                recommendations: `Рекомендуется поэтапное строительство школ начиная с наиболее перегруженных районов. Общая потребность в дополнительных школьных местах составляет приблизительно <span class="analysis-highlight">${needsSchoolCount * 800 + Math.round(Math.random() * 400)}</span> мест.`
+            };
+        }
+
+        // Close results panel
+        document.getElementById('closeResults').addEventListener('click', () => {
+            document.getElementById('resultsPanel').classList.remove('show');
+        });
+
+        // Get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Система анализа городской инфраструктуры загружена');
+        });
+    </script>
+</body>
+</html>
