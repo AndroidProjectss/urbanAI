@@ -82,10 +82,33 @@ class School(models.Model):
         return f"{self.name} ({self.district})"
     
     @property
+    def estimated_capacity(self):
+        """Оценочная вместимость школы с учетом отсутствующих данных"""
+        # 1. Если есть официальная максимальная вместимость
+        if self.max_capacity > 0:
+            return self.max_capacity
+        
+        # 2. Если есть реальная вместимость
+        if self.real_capacity > 0:
+            return self.real_capacity
+        
+        # 3. Расчет по количеству классов (стандарт: 28 учеников/класс)
+        if self.total_classes > 0:
+            return self.total_classes * 28
+        
+        # 4. Если есть ученики, но нет других данных - используем текущее количество как минимум
+        if self.total_students > 0:
+            return self.total_students
+        
+        # 5. Нет данных
+        return 0
+    
+    @property
     def occupancy_rate(self):
         """Процент загруженности школы"""
-        if self.max_capacity > 0:
-            return round((self.total_students / self.max_capacity) * 100, 2)
+        capacity = self.estimated_capacity
+        if capacity > 0:
+            return round((self.total_students / capacity) * 100, 2)
         return 0
     
     @property

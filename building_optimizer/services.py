@@ -434,12 +434,9 @@ out geom;"""
             schools = School.objects.filter(region__icontains=city_name)
             
             for school in schools:
-                # Рассчитываем процент загруженности
-                occupancy = 0
-                if school.max_capacity > 0:
-                    occupancy = round((school.total_students / school.max_capacity) * 100, 1)
-                elif school.real_capacity > 0:
-                    occupancy = round((school.total_students / school.real_capacity) * 100, 1)
+                # Используем оценочную вместимость с учетом отсутствующих данных
+                estimated_capacity = school.estimated_capacity
+                occupancy = school.occupancy_rate
                 
                 # Определяем статус загруженности
                 status = "Нормальная"
@@ -471,11 +468,13 @@ out geom;"""
                     # Вместимость и загруженность
                     'max_capacity': school.max_capacity,
                     'real_capacity': school.real_capacity,
+                    'estimated_capacity': estimated_capacity,  # Оценочная вместимость
                     'total_classes': school.total_classes,
                     'occupancy_rate': occupancy,
                     'status': status,
                     'status_color': status_color,
                     'is_overloaded': occupancy > 100,
+                    'has_capacity_data': school.max_capacity > 0 or school.real_capacity > 0,
                     # Распределение по классам
                     'students_by_grade': {
                         '1': school.students_class_1,

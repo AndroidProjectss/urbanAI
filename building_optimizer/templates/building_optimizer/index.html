@@ -1105,11 +1105,13 @@
 
         // Показать только heatmap
         function showHeatmapOnly() {
-            // Показываем heatmap
-            if (heatmap) {
-                heatmap.setMap(map);
-            } else if (cityData.heatmapData.length > 0) {
-                displayHeatmap();
+            // ✅ ИСПРАВЛЕНИЕ: Показываем heatmap ТОЛЬКО если она включена в layersState
+            if (layersState.heatmap) {
+                if (heatmap) {
+                    heatmap.setMap(map);
+                } else if (cityData.heatmapData.length > 0) {
+                    displayHeatmap();
+                }
             }
 
             // Скрываем маркеры жилых домов
@@ -1117,10 +1119,12 @@
                 marker.setMap(null);
             });
 
-            // Школы оставляем видимыми всегда (важная инфраструктура)
-            schoolsMarkers.forEach(marker => {
-                marker.setMap(map);
-            });
+            // ✅ ИСПРАВЛЕНИЕ: Школы показываем только если они включены
+            if (layersState.schools) {
+                schoolsMarkers.forEach(marker => {
+                    marker.setMap(map);
+                });
+            }
         }
 
         // Показать только маркеры
@@ -1130,21 +1134,26 @@
                 heatmap.setMap(null);
             }
 
-            // 🚀 ОПТИМИЗАЦИЯ: Просто показываем уже созданные маркеры
-            // (Кластеров мало, не нужно пересоздавать при каждом zoom)
-            if (residentialMarkers.length === 0 && cityData.residential.length > 0 && layersState.residential) {
-                displayResidential();
-            } else {
-                // Просто показываем существующие маркеры
-                residentialMarkers.forEach(marker => {
+            // ✅ ИСПРАВЛЕНИЕ: Показываем маркеры ТОЛЬКО если слой включен
+            if (layersState.residential) {
+                // 🚀 ОПТИМИЗАЦИЯ: Просто показываем уже созданные маркеры
+                // (Кластеров мало, не нужно пересоздавать при каждом zoom)
+                if (residentialMarkers.length === 0 && cityData.residential.length > 0) {
+                    displayResidential();
+                } else {
+                    // Просто показываем существующие маркеры
+                    residentialMarkers.forEach(marker => {
+                        marker.setMap(map);
+                    });
+                }
+            }
+
+            // ✅ ИСПРАВЛЕНИЕ: Школы показываем только если они включены
+            if (layersState.schools) {
+                schoolsMarkers.forEach(marker => {
                     marker.setMap(map);
                 });
             }
-
-            // Школы всегда видимы
-            schoolsMarkers.forEach(marker => {
-                marker.setMap(map);
-            });
         }
         
         // Очистить только маркеры жилых домов
@@ -1462,14 +1471,17 @@
                         
                         <div style="background: ${school.status_color === 'red' ? '#ffebee' : school.status_color === 'orange' ? '#fff3e0' : school.status_color === 'yellow' ? '#fffde7' : '#e8f5e9'}; 
                                     padding: 10px; border-radius: 5px; margin-bottom: 10px;">
-                            <p style="margin: 5px 0; font-size: 14px;"><strong>👥 Учеников:</strong> ${school.total_students}</p>
-                            <p style="margin: 5px 0; font-size: 13px;">👧 Девочек: ${school.students_girls} | 👦 Мальчиков: ${school.students_boys}</p>
-                            <p style="margin: 5px 0; font-size: 14px;"><strong>🏫 Классов:</strong> ${school.total_classes}</p>
-                            ${school.max_capacity > 0 ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📊 Вместимость:</strong> ${school.max_capacity} мест</p>` : ''}
-                            ${school.real_capacity > 0 ? `<p style="margin: 5px 0; font-size: 13px;"><strong>🏗️ Реальная вместимость:</strong> ${school.real_capacity} мест</p>` : ''}
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>👥 Учеников:</strong> ${school.total_students > 0 ? school.total_students : 'нет данных'}</p>
+                            ${school.total_students > 0 ? `<p style="margin: 5px 0; font-size: 13px;">👧 Девочек: ${school.students_girls} | 👦 Мальчиков: ${school.students_boys}</p>` : ''}
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>🏫 Классов:</strong> ${school.total_classes > 0 ? school.total_classes : 'нет данных'}</p>
+                            
+                            ${school.max_capacity > 0 ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📊 Вместимость:</strong> ${school.max_capacity} мест</p>` : 
+                              school.estimated_capacity > 0 && school.total_students > 0 ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📊 Расчетная вместимость:</strong> ~${school.estimated_capacity} мест <span style="color: #666; font-size: 11px;">(оценка)</span></p>` : ''}
+                            
+                            ${school.total_students > 0 && school.estimated_capacity > 0 ? `
                             <p style="margin: 5px 0; font-size: 14px; font-weight: bold; color: ${school.status_color === 'red' ? '#d32f2f' : school.status_color === 'orange' ? '#f57c00' : school.status_color === 'yellow' ? '#f9a825' : '#388e3c'};">
                                 📈 Загруженность: ${school.occupancy_rate}% - ${school.status}
-                            </p>
+                            </p>` : '<p style="margin: 5px 0; font-size: 13px; color: #999;">📈 Недостаточно данных для расчета загруженности</p>'}
                         </div>
                         
                         ${school.phone ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📞 Телефон:</strong> ${school.phone}</p>` : ''}
