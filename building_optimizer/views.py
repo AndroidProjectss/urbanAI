@@ -1692,3 +1692,219 @@ def ml_predict_school_population(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+# =====================================================
+# AI РЕКОМЕНДАЦИИ ПО СТРОИТЕЛЬСТВУ ШКОЛ
+# =====================================================
+
+from .ai_recommendations_service import get_ai_recommendations_service
+from .grid_service import GridService
+
+@api_view(['GET', 'POST'])
+def ai_school_recommendations(request):
+    """
+    AI-анализ и рекомендации по строительству новых школ.
+    
+    GET /api/ai/recommendations/?district=Первомайский&ownership=government
+    POST /api/ai/recommendations/ {"district": "Первомайский", "ownership": "government"}
+    
+    Параметры:
+    - district: фильтр по району
+    - ownership: 'all' | 'government' | 'private'
+    
+    Использует:
+    - Плотность населения (сетка 500x500м)
+    - Загрузку существующих школ
+    - ML прогнозы
+    - Gemini AI для анализа
+    """
+    try:
+        # Получаем фильтры
+        if request.method == 'POST':
+            district_filter = request.data.get('district')
+            ownership_filter = request.data.get('ownership', 'government')  # По умолчанию - государственные
+        else:
+            district_filter = request.GET.get('district')
+            ownership_filter = request.GET.get('ownership', 'government')
+        
+        print(f"🤖 AI Recommendations запрос, район: {district_filter or 'все'}, тип: {ownership_filter}")
+        
+        # 1. Получаем данные сетки плотности
+        osm_service = OpenStreetMapService()
+        
+        # Загружаем здания
+        residential_data = osm_service.get_residential_buildings_in_city('Бишкек')
+        districts_data = osm_service.get_districts_in_city('Бишкек')
+        
+        # Создаём сетку
+        grid_service = GridService()
+        grid_data = grid_service.create_population_grid(residential_data, districts_data)
+        
+        # 2. Получаем школы с расчётом вместимости
+        schools_qs = School.objects.all()
+        
+        # Фильтруем по типу собственности
+        if ownership_filter == 'government':
+            # Государственные/муниципальные школы
+            schools_qs = schools_qs.filter(
+                owner_form__iregex=r'(state|municipal|государств|муниципал|коммунал)'
+            )
+            print(f"📚 Фильтр: только государственные школы ({schools_qs.count()} шт.)")
+        elif ownership_filter == 'private':
+            # Частные школы
+            schools_qs = schools_qs.filter(
+                owner_form__iregex=r'(private|частн)'
+            )
+            print(f"📚 Фильтр: только частные школы ({schools_qs.count()} шт.)")
+        else:
+            print(f"📚 Все школы: {schools_qs.count()} шт.")
+        
+        schools = []
+        for school in schools_qs:
+            schools.append({
+                'id': school.id,
+                'name': school.name,
+                'district': school.district,
+                'latitude': school.latitude,
+                'longitude': school.longitude,
+                'total_students': school.total_students,
+                'capacity': school.estimated_capacity,
+                'occupancy_rate': school.occupancy_rate,
+                'owner_form': school.owner_form,
+            })
+        
+        # 3. Получаем ML прогноз
+        try:
+            forecaster = get_population_forecaster()
+            ml_forecast = forecaster.get_full_forecast(years_ahead=5)
+        except Exception as e:
+            print(f"⚠️ ML forecast error: {e}")
+            ml_forecast = None
+        
+        # 4. Получаем запрещённые зоны (парки, промзоны и т.д.)
+        try:
+            restricted_zones = osm_service.get_restricted_zones('Бишкек')
+            print(f"🚫 Загружено {len(restricted_zones)} запрещённых зон")
+        except Exception as e:
+            print(f"⚠️ Restricted zones error: {e}")
+            restricted_zones = []
+        
+        # 5. Подготавливаем данные для AI
+        ai_service = get_ai_recommendations_service()
+        analysis_data = ai_service.prepare_analysis_data(
+            grid_data, schools, districts_data, ml_forecast, restricted_zones
+        )
+        
+        # 6. Генерируем рекомендации через Gemini
+        result = ai_service.generate_recommendations(analysis_data, district_filter)
+        
+        return Response(result)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@api_view(['GET'])
+def ai_analyze_district(request):
+    """
+    AI-анализ конкретного района с детальными рекомендациями.
+    
+    GET /api/ai/analyze-district/?district=Первомайский
+    """
+    district = request.GET.get('district')
+    if not district:
+        return Response({
+            'success': False,
+            'error': 'Укажите параметр district'
+        }, status=400)
+    
+    try:
+        # Получаем школы района
+        schools_qs = School.objects.filter(district__icontains=district)
+        
+        if not schools_qs.exists():
+            return Response({
+                'success': False,
+                'error': f'Школы в районе "{district}" не найдены'
+            }, status=404)
+        
+        # Собираем данные с расчётом вместимости и загрузки
+        schools = []
+        total_students = 0
+        total_capacity = 0
+        overloaded = []
+        critical = []
+        first_graders = 0
+        eleventh_graders = 0
+        
+        for school in schools_qs:
+            capacity = school.estimated_capacity
+            occupancy = school.occupancy_rate
+            
+            school_data = {
+                'id': school.id,
+                'name': school.name,
+                'district': school.district,
+                'latitude': school.latitude,
+                'longitude': school.longitude,
+                'total_students': school.total_students,
+                'capacity': capacity,
+                'occupancy_rate': occupancy,
+                'grade_1': school.students_class_1,
+                'grade_11': school.students_class_11,
+            }
+            schools.append(school_data)
+            
+            total_students += school.total_students
+            total_capacity += capacity
+            first_graders += school.students_class_1
+            eleventh_graders += school.students_class_11
+            
+            if occupancy > 100:
+                overloaded.append(school_data)
+            if occupancy > 130:
+                critical.append(school_data)
+        
+        growth_trend = first_graders / eleventh_graders if eleventh_graders > 0 else 1
+        
+        return Response({
+            'success': True,
+            'district': district,
+            'statistics': {
+                'schools_count': len(schools),
+                'total_students': total_students,
+                'total_capacity': total_capacity,
+                'current_deficit': max(0, total_students - total_capacity),
+                'avg_occupancy': round(total_students / total_capacity * 100, 1) if total_capacity > 0 else 0,
+                'overloaded_count': len(overloaded),
+                'critical_count': len(critical)
+            },
+            'growth_analysis': {
+                'first_graders': first_graders,
+                'eleventh_graders': eleventh_graders,
+                'growth_trend': round(growth_trend, 3),
+                'trend_description': 'Рост' if growth_trend > 1.05 else ('Спад' if growth_trend < 0.95 else 'Стабильно')
+            },
+            'schools': schools,
+            'overloaded_schools': overloaded,
+            'critical_schools': critical,
+            'recommendations': {
+                'new_places_needed': max(0, total_students - total_capacity),
+                'new_schools_needed': max(0, (total_students - total_capacity) // 1000),
+                'priority': 'critical' if len(critical) > 5 else ('high' if len(overloaded) > 10 else 'medium')
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=500)

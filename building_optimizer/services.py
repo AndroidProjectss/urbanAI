@@ -507,6 +507,165 @@ out geom;"""
             return []
 
     @staticmethod
+    def get_restricted_zones(city_name):
+        """
+        Получить зоны где НЕЛЬЗЯ строить школы:
+        - Парки и скверы
+        - Кладбища
+        - Промышленные зоны
+        - Военные объекты
+        - Водоёмы
+        - Крупные торговые центры
+        - Аэропорты
+        """
+        restricted_zones = []
+        
+        city_info = OpenStreetMapService.get_city_boundaries(city_name)
+        if not city_info:
+            return []
+        
+        bbox = city_info.get('boundingbox')
+        if not bbox or len(bbox) != 4:
+            return []
+        
+        try:
+            south, north, west, east = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
+        except ValueError:
+            return []
+
+        # Запрос запрещённых зон
+        overpass_query = f"""[out:json][timeout:120];
+(
+  // Парки и зелёные зоны
+  way["leisure"="park"]({south},{west},{north},{east});
+  relation["leisure"="park"]({south},{west},{north},{east});
+  way["landuse"="grass"]({south},{west},{north},{east});
+  
+  // Кладбища
+  way["landuse"="cemetery"]({south},{west},{north},{east});
+  way["amenity"="grave_yard"]({south},{west},{north},{east});
+  
+  // Промышленные зоны
+  way["landuse"="industrial"]({south},{west},{north},{east});
+  
+  // Военные объекты
+  way["landuse"="military"]({south},{west},{north},{east});
+  
+  // Водоёмы
+  way["natural"="water"]({south},{west},{north},{east});
+  relation["natural"="water"]({south},{west},{north},{east});
+  way["waterway"="river"]({south},{west},{north},{east});
+  way["waterway"="canal"]({south},{west},{north},{east});
+  
+  // Аэропорты
+  way["aeroway"="aerodrome"]({south},{west},{north},{east});
+  
+  // Крупные торговые центры (занимают много места)
+  way["shop"="mall"]({south},{west},{north},{east});
+  
+  // Стадионы
+  way["leisure"="stadium"]({south},{west},{north},{east});
+  
+  // Железные дороги
+  way["landuse"="railway"]({south},{west},{north},{east});
+);
+out center geom;"""
+        
+        overpass_url = "https://overpass-api.de/api/interpreter"
+        headers = {'User-Agent': 'BuildingOptimizerApp/1.0 (murgalag05@gmail.com)'}
+
+        try:
+            print(f"🚫 Overpass: Запрос запрещённых зон в {city_name}...")
+            time.sleep(1)
+            response = requests.post(overpass_url, data=overpass_query.encode('utf-8'), headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            
+            zone_types = {
+                'park': '🌳 Парк',
+                'grass': '🌿 Зелёная зона',
+                'cemetery': '⚰️ Кладбище',
+                'grave_yard': '⚰️ Кладбище',
+                'industrial': '🏭 Промзона',
+                'military': '🎖️ Военный объект',
+                'water': '💧 Водоём',
+                'river': '🌊 Река',
+                'canal': '🌊 Канал',
+                'aerodrome': '✈️ Аэропорт',
+                'mall': '🛒 ТЦ',
+                'stadium': '🏟️ Стадион',
+                'railway': '🚂 Ж/Д'
+            }
+            
+            for element in data.get('elements', []):
+                tags = element.get('tags', {})
+                
+                # Определяем тип зоны
+                zone_type = (tags.get('leisure') or tags.get('landuse') or 
+                            tags.get('amenity') or tags.get('natural') or 
+                            tags.get('waterway') or tags.get('aeroway') or
+                            tags.get('shop'))
+                
+                if not zone_type:
+                    continue
+                
+                zone_name = tags.get('name', zone_types.get(zone_type, zone_type))
+                
+                # Получаем центр и границы
+                center_lat, center_lng = None, None
+                bounds = None
+                
+                if element['type'] == 'node':
+                    center_lat = element['lat']
+                    center_lng = element['lon']
+                elif 'center' in element:
+                    center_lat = element['center']['lat']
+                    center_lng = element['center']['lon']
+                
+                # Получаем геометрию для расчёта размера
+                if 'geometry' in element:
+                    lats = [p['lat'] for p in element['geometry'] if 'lat' in p]
+                    lngs = [p['lon'] for p in element['geometry'] if 'lon' in p]
+                    if lats and lngs:
+                        bounds = {
+                            'min_lat': min(lats),
+                            'max_lat': max(lats),
+                            'min_lng': min(lngs),
+                            'max_lng': max(lngs)
+                        }
+                        if not center_lat:
+                            center_lat = (bounds['min_lat'] + bounds['max_lat']) / 2
+                            center_lng = (bounds['min_lng'] + bounds['max_lng']) / 2
+                
+                if center_lat and center_lng:
+                    # Оцениваем радиус зоны
+                    radius_km = 0.3  # По умолчанию 300м
+                    if bounds:
+                        # Приблизительный размер по диагонали
+                        import math
+                        lat_diff = bounds['max_lat'] - bounds['min_lat']
+                        lng_diff = bounds['max_lng'] - bounds['min_lng']
+                        # Конвертируем в км (грубо: 1 градус ≈ 111 км)
+                        size_km = math.sqrt((lat_diff * 111)**2 + (lng_diff * 111 * 0.7)**2)
+                        radius_km = max(0.1, size_km / 2)
+                    
+                    restricted_zones.append({
+                        'lat': center_lat,
+                        'lng': center_lng,
+                        'type': zone_type,
+                        'name': zone_name,
+                        'radius_km': round(radius_km, 2),
+                        'bounds': bounds
+                    })
+
+            print(f"🚫 Найдено {len(restricted_zones)} запрещённых зон")
+            return restricted_zones
+        
+        except Exception as e:
+            print(f"❌ Ошибка при получении запрещённых зон: {e}")
+            return []
+
+    @staticmethod
     def get_residential_buildings_in_city(city_name):
         """
         Получить ВСЕ жилые здания в городе с расчетом реального населения.
