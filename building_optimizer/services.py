@@ -419,64 +419,92 @@ out geom;"""
 
     @staticmethod
     def get_schools_in_city(city_name):
-        """Получить школы в городе"""
+        """
+        Получить школы в городе из базы данных ИСУО.
+        Данные загружаются из XML файла командой: python manage.py load_schools
+        """
+        from .models import School
+        
         schools_data = []
         
-        city_info = OpenStreetMapService.get_city_boundaries(city_name)
-        if not city_info:
-            print(f"Город '{city_name}' не найден в OpenStreetMap.")
-            return []
-        
-        bbox = city_info.get('boundingbox')
-        if not bbox or len(bbox) != 4:
-            print(f"Не удалось получить ограничивающую рамку для города '{city_name}'.")
-            return []
-        
         try:
-            south, north, west, east = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
-        except ValueError as e:
-            print(f"Ошибка преобразования координат: {e}")
-            return []
-
-        overpass_query = f"""[out:json][timeout:90];
-(
-  node["amenity"="school"]({south},{west},{north},{east});
-  way["amenity"="school"]({south},{west},{north},{east});
-  relation["amenity"="school"]({south},{west},{north},{east});
-);
-out center;"""
-        
-        overpass_url = "https://overpass-api.de/api/interpreter"
-        headers = {'User-Agent': 'BuildingOptimizerApp/1.0 (murgalag05@gmail.com)'}
-
-        try:
-            print(f"Overpass: Отправка запроса для школ в {city_name}...")
-            time.sleep(1)
-            response = requests.post(overpass_url, data=overpass_query.encode('utf-8'), headers=headers)
-            response.raise_for_status()
-            data = response.json()
+            print(f"📚 Загрузка школ из базы данных для города '{city_name}'...")
             
-            for element in data.get('elements', []):
-                if element['type'] == 'node':
-                    schools_data.append({
-                        'name': element.get('tags', {}).get('name', 'Неизвестная школа'),
-                        'lat': element['lat'],
-                        'lng': element['lon'],
-                        'type': 'school'
-                    })
-                elif element['type'] in ['way', 'relation'] and 'center' in element:
-                    schools_data.append({
-                        'name': element.get('tags', {}).get('name', 'Неизвестная школа'),
-                        'lat': element['center']['lat'],
-                        'lng': element['center']['lon'],
-                        'type': 'school'
-                    })
+            # Получаем все школы из региона (например, "г.Бишкек")
+            schools = School.objects.filter(region__icontains=city_name)
+            
+            for school in schools:
+                # Рассчитываем процент загруженности
+                occupancy = 0
+                if school.max_capacity > 0:
+                    occupancy = round((school.total_students / school.max_capacity) * 100, 1)
+                elif school.real_capacity > 0:
+                    occupancy = round((school.total_students / school.real_capacity) * 100, 1)
+                
+                # Определяем статус загруженности
+                status = "Нормальная"
+                status_color = "green"
+                if occupancy > 120:
+                    status = "Критическая перегрузка"
+                    status_color = "red"
+                elif occupancy > 100:
+                    status = "Перегружена"
+                    status_color = "orange"
+                elif occupancy > 80:
+                    status = "Высокая загруженность"
+                    status_color = "yellow"
+                
+                schools_data.append({
+                    'id': school.id,
+                    'institution_id': school.institution_id,
+                    'name': school.name,
+                    'full_name': school.full_name or school.name,
+                    'address': school.address,
+                    'district': school.district,
+                    'lat': school.latitude,
+                    'lng': school.longitude,
+                    'type': 'school',
+                    # Данные об учениках
+                    'total_students': school.total_students,
+                    'students_girls': school.total_students_girls,
+                    'students_boys': school.total_students_boys,
+                    # Вместимость и загруженность
+                    'max_capacity': school.max_capacity,
+                    'real_capacity': school.real_capacity,
+                    'total_classes': school.total_classes,
+                    'occupancy_rate': occupancy,
+                    'status': status,
+                    'status_color': status_color,
+                    'is_overloaded': occupancy > 100,
+                    # Распределение по классам
+                    'students_by_grade': {
+                        '1': school.students_class_1,
+                        '2': school.students_class_2,
+                        '3': school.students_class_3,
+                        '4': school.students_class_4,
+                        '5': school.students_class_5,
+                        '6': school.students_class_6,
+                        '7': school.students_class_7,
+                        '8': school.students_class_8,
+                        '9': school.students_class_9,
+                        '10': school.students_class_10,
+                        '11': school.students_class_11,
+                    },
+                    # Дополнительная информация
+                    'phone': school.phone_number,
+                    'director': school.director_name,
+                    'owner_form': school.owner_form,
+                })
 
-            print(f"Overpass: Найдено {len(schools_data)} школ в городе {city_name}.")
+            print(f"📚 Загружено {len(schools_data)} школ из базы данных")
+            print(f"📊 Статистика: перегружено {sum(1 for s in schools_data if s['is_overloaded'])} школ")
+            
             return schools_data
         
         except Exception as e:
-            print(f"Ошибка при получении школ: {e}")
+            print(f"❌ Ошибка при загрузке школ из БД: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     @staticmethod

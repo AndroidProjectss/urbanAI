@@ -1427,41 +1427,73 @@
             if (cityData.schools.length === 0) return;
 
             cityData.schools.forEach((school, index) => {
+                // Цвет маркера в зависимости от загруженности
+                let markerColor = '#4CAF50'; // зеленый - нормально
+                if (school.occupancy_rate > 120) {
+                    markerColor = '#f44336'; // красный - критическая перегрузка
+                } else if (school.occupancy_rate > 100) {
+                    markerColor = '#FF9800'; // оранжевый - перегружена
+                } else if (school.occupancy_rate > 80) {
+                    markerColor = '#FFC107'; // желтый - высокая загруженность
+                }
+
                 const marker = new google.maps.Marker({
                     position: { lat: parseFloat(school.lat), lng: parseFloat(school.lng) },
                     map: map,
                     title: school.name,
                     icon: {
                         path: google.maps.SymbolPath.CIRCLE,
-                        scale: 8,
-                        fillColor: '#4285f4',
-                        fillOpacity: 1,
+                        scale: 10,
+                        fillColor: markerColor,
+                        fillOpacity: 0.9,
                         strokeColor: '#ffffff',
                         strokeWeight: 2
                     }
                 });
 
-                const infoWindow = new google.maps.InfoWindow({
-                    content: `
-                        <div style="padding: 10px; min-width: 200px;">
-                            <h4 style="margin: 0 0 10px 0;">${school.name}</h4>
-                            <div style="margin-top: 10px;">
-                                <button onclick="getEnhancedSchoolInfo('${school.name.replace(/'/g, "\\'")}', ${school.lat}, ${school.lng})" 
-                                        style="padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">
-                                    Подробнее
-                                </button>
-                            </div>
+                // Создаем детальное окно информации
+                const infoContent = `
+                    <div style="padding: 15px; min-width: 300px; font-family: Arial, sans-serif;">
+                        <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 16px;">${school.name}</h3>
+                        <div style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                            <p style="margin: 5px 0; font-size: 13px;"><strong>📍 Адрес:</strong> ${school.address}</p>
+                            <p style="margin: 5px 0; font-size: 13px;"><strong>🏘️ Район:</strong> ${school.district}</p>
                         </div>
-                    `
+                        
+                        <div style="background: ${school.status_color === 'red' ? '#ffebee' : school.status_color === 'orange' ? '#fff3e0' : school.status_color === 'yellow' ? '#fffde7' : '#e8f5e9'}; 
+                                    padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>👥 Учеников:</strong> ${school.total_students}</p>
+                            <p style="margin: 5px 0; font-size: 13px;">👧 Девочек: ${school.students_girls} | 👦 Мальчиков: ${school.students_boys}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>🏫 Классов:</strong> ${school.total_classes}</p>
+                            ${school.max_capacity > 0 ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📊 Вместимость:</strong> ${school.max_capacity} мест</p>` : ''}
+                            ${school.real_capacity > 0 ? `<p style="margin: 5px 0; font-size: 13px;"><strong>🏗️ Реальная вместимость:</strong> ${school.real_capacity} мест</p>` : ''}
+                            <p style="margin: 5px 0; font-size: 14px; font-weight: bold; color: ${school.status_color === 'red' ? '#d32f2f' : school.status_color === 'orange' ? '#f57c00' : school.status_color === 'yellow' ? '#f9a825' : '#388e3c'};">
+                                📈 Загруженность: ${school.occupancy_rate}% - ${school.status}
+                            </p>
+                        </div>
+                        
+                        ${school.phone ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📞 Телефон:</strong> ${school.phone}</p>` : ''}
+                        ${school.director ? `<p style="margin: 5px 0; font-size: 13px;"><strong>👤 Директор:</strong> ${school.director}</p>` : ''}
+                    </div>
+                `;
+
+                const infoWindow = new google.maps.InfoWindow({
+                    content: infoContent
                 });
 
-                marker.addListener('click', () => infoWindow.open(map, marker));
-                marker.addListener('dblclick', () => {
-                    getEnhancedSchoolInfo(school.name, school.lat, school.lng);
+                marker.addListener('click', () => {
+                    // Закрываем все другие информационные окна
+                    schoolsMarkers.forEach(m => {
+                        if (m.infoWindow) m.infoWindow.close();
+                    });
+                    infoWindow.open(map, marker);
                 });
 
+                marker.infoWindow = infoWindow;
                 schoolsMarkers.push(marker);
             });
+
+            console.log(`🏫 Отображено ${schoolsMarkers.length} школ на карте`);
         }
 
         function displayResidential() {
