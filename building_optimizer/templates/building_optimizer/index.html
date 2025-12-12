@@ -1,4 +1,4 @@
-{% load static %}
+﻿{% load static %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -694,16 +694,98 @@
             .control-panel {
                 width: 100%;
                 height: auto;
-                max-height: 50vh;
+                max-height: 40vh;
+                padding: 0.8rem;
+                order: 2; /* Панель управления снизу */
+            }
+            
+            .map-container {
+                order: 1; /* Карта сверху */
+                height: 55vh;
+            }
+            
+            /* Легенда на мобильных - внизу карты, горизонтальная */
+            .map-legend {
+                position: fixed;
+                top: auto;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                max-height: 120px;
+                border-radius: 12px 12px 0 0;
+                padding: 10px;
+                font-size: 10px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                justify-content: center;
+                align-items: flex-start;
+                z-index: 1000;
+            }
+            
+            .map-legend > div[style*="font-weight: bold"][style*="margin-bottom: 8px"] {
+                display: none; /* Скрываем заголовок "Легенда карты" */
+            }
+            
+            .map-legend .legend-item {
+                margin-bottom: 0;
+                font-size: 9px;
+            }
+            
+            .map-legend #zoom-indicator,
+            .map-legend #district-info,
+            .map-legend #population-stats {
+                display: none !important;
             }
             
             .results-panel {
                 width: 100%;
                 right: -100%;
+                top: 0;
+                height: 100vh;
             }
             
             .facility-grid {
                 grid-template-columns: 1fr;
+            }
+            
+            .header-title {
+                font-size: 1.2rem;
+            }
+            
+            .header-subtitle {
+                font-size: 0.75rem;
+            }
+            
+            .section-card {
+                padding: 0.8rem;
+                margin-bottom: 0.8rem;
+            }
+            
+            .district-list {
+                max-height: 150px;
+            }
+        }
+        
+        /* Еще меньшие экраны */
+        @media (max-width: 480px) {
+            .map-legend {
+                max-height: 100px;
+                padding: 8px;
+            }
+            
+            .legend-item {
+                font-size: 8px;
+            }
+            
+            .legend-color {
+                width: 12px;
+                height: 12px;
+            }
+            
+            .control-panel {
+                max-height: 35vh;
             }
         }
 
@@ -766,21 +848,32 @@
                 </p>
             </div>
 
-            <!-- Map Layers Section -->
+            <!-- Map Mode Section -->
             <div class="section-card">
                 <h3 class="section-title">
                     <i class="fas fa-layer-group"></i>
-                    Слои карты
+                    Режим отображения
                 </h3>
-                <button class="toggle-button active" onclick="toggleLayer('heatmap')" id="heatmap-btn">
-                    <span><i class="fas fa-fire me-2"></i>Тепловая карта</span>
-                </button>
-                <button class="toggle-button active" onclick="toggleLayer('schools')" id="schools-btn">
-                    <span><i class="fas fa-school me-2"></i>Школы</span>
-                </button>
-                <button class="toggle-button" onclick="toggleLayer('residential')" id="residential-btn">
-                    <span><i class="fas fa-home me-2"></i>Жилые дома</span>
-                </button>
+                <div style="padding: 12px; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-radius: 8px; border: 2px solid #00B050;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-th" style="color: #00B050; font-size: 20px;"></i>
+                        <div>
+                            <div style="font-weight: bold; color: #2e7d32;">Гибридная сетка плотности</div>
+                            <div style="font-size: 11px; color: #666;">500×500м ячейки + здания при zoom≥15</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="schools-checkbox" checked onchange="toggleSchools()" style="margin-right: 10px; width: 18px; height: 18px;">
+                        <i class="fas fa-school me-2" style="color: #4285f4;"></i>
+                        <span>Показывать школы</span>
+                    </label>
+                </div>
+                <div style="margin-top: 10px; padding: 8px; background: #f5f5f5; border-radius: 4px; font-size: 11px; color: #666;">
+                    <i class="fas fa-info-circle me-1"></i>
+                    При zoom ≥15 отображаются отдельные здания
+                </div>
             </div>
 
             <!-- Districts Section -->
@@ -828,72 +921,101 @@
             <div class="map-legend">
                 <div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">📊 Легенда карты</div>
                 
-                <!-- Подсказка по zoom -->
-                <div style="font-size: 11px; color: #fff; margin-bottom: 10px; padding: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
-                    <div style="font-weight: bold; margin-bottom: 4px;">🎯 Умное отображение:</div>
+                <!-- Подсказка по режимам -->
+                <div style="font-size: 11px; color: #fff; margin-bottom: 10px; padding: 8px; background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                    <div style="font-weight: bold; margin-bottom: 4px;">🎯 Гибридный режим:</div>
                     <div style="font-size: 10px; opacity: 0.95;">
-                        📊 <strong>Далеко (zoom < 14):</strong> Тепловая карта<br>
-                        🏠 <strong>Близко (zoom ≥ 14):</strong> Маркеры зданий
+                        🔳 <strong>Сетка</strong> — при обзоре (zoom &lt; 15)<br>
+                        🏠 <strong>Здания</strong> — при приближении (zoom ≥ 15)
                     </div>
                 </div>
                 
-                <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">🔥 Тепловая карта:</div>
+                <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">� Плотность (чел/км²):</div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: linear-gradient(to right, #00ff00, #ffff00, #ff0000);"></div>
-                    <span>Плотность населения</span>
+                    <div class="legend-color" style="background: #00B050; width: 20px;"></div>
+                    <span>&lt; 1,500</span>
                 </div>
-                <div style="font-size: 10px; color: #666; margin-left: 10px; margin-bottom: 8px;">Зеленый → Желтый → Красный</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #F4D03F; width: 20px;"></div>
+                    <span>1,500–6,000</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #FF8C00; width: 20px;"></div>
+                    <span>6,000–10,000</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #FF3B30; width: 20px;"></div>
+                    <span>10,000–20,000</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #7E57C2; width: 20px;"></div>
+                    <span>&gt; 20,000</span>
+                </div>
                 
-                <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">🏠 Здания по этажности:</div>
+                <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">🏠 Здания (zoom≥15):</div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #ff0000; border-radius: 50%; width: 12px; height: 12px;"></div>
-                    <span>Высотки (9+ этажей)</span>
+                    <div class="legend-color" style="background: #ff0000; border-radius: 50%; width: 10px; height: 10px;"></div>
+                    <span>9+ эт.</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #ff6600; border-radius: 50%; width: 10px; height: 10px;"></div>
-                    <span>Многоэтажки (6-8 эт.)</span>
+                    <div class="legend-color" style="background: #ff6600; border-radius: 50%; width: 8px; height: 8px;"></div>
+                    <span>6-8 эт.</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #ffcc00; border-radius: 50%; width: 9px; height: 9px;"></div>
-                    <span>Хрущевки (4-5 эт.)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #88cc00; border-radius: 50%; width: 7px; height: 7px;"></div>
-                    <span>2-3 этажа</span>
+                    <div class="legend-color" style="background: #ffcc00; border-radius: 50%; width: 6px; height: 6px;"></div>
+                    <span>4-5 эт.</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #00cc44; border-radius: 50%; width: 5px; height: 5px;"></div>
-                    <span>Частный сектор (1 эт.)</span>
-                </div>
-                <div style="font-size: 10px; color: #666; margin-left: 10px; margin-bottom: 8px;">💡 Размер точки = население дома</div>
-                
-                <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">🏫 Инфраструктура:</div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #4285f4; border-radius: 50%; width: 8px; height: 8px;"></div>
-                    <span>Школы (всегда видимы)</span>
+                    <span>1-3 эт.</span>
                 </div>
                 
-                <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">🗺️ Районы:</div>
+                <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">🏫 Школы (загруженность):</div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #ff4444;"></div>
-                    <span>Октябрьский</span>
+                    <div style="width: 18px; height: 18px; background: #4CAF50; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; margin-right: 8px;">
+                        <span style="color: white; font-size: 10px;">🏫</span>
+                    </div>
+                    <span>&lt; 80% норма</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #44ff44;"></div>
-                    <span>Первомайский</span>
+                    <div style="width: 18px; height: 18px; background: #FFC107; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; margin-right: 8px;">
+                        <span style="color: white; font-size: 10px;">🏫</span>
+                    </div>
+                    <span>80-100%</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #4444ff;"></div>
-                    <span>Ленинский</span>
+                    <div style="width: 18px; height: 18px; background: #FF9800; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; margin-right: 8px;">
+                        <span style="color: white; font-size: 10px;">🏫</span>
+                    </div>
+                    <span>100-120%</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #ffaa00;"></div>
-                    <span>Свердловский</span>
+                    <div style="width: 18px; height: 18px; background: #f44336; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; margin-right: 8px;">
+                        <span style="color: white; font-size: 10px;">🏫</span>
+                    </div>
+                    <span>&gt; 120% критично</span>
                 </div>
                 
-                <div style="font-size: 10px; color: #666; margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px;">
-                    💡 Кликните на маркер для деталей<br>
-                    🔍 Приближайте карту для зданий
+                <div id="population-stats" style="font-size: 10px; color: #333; margin-top: 10px; padding: 8px; background: #e8f5e9; border-radius: 4px; display: none;">
+                    <div style="font-weight: bold; margin-bottom: 4px;">👥 Население:</div>
+                    <div id="stats-content">Загрузка...</div>
+                </div>
+                
+                <div id="zoom-indicator" style="font-size: 11px; color: #333; margin-top: 10px; padding: 8px; background: #fff3cd; border-radius: 4px;">
+                    🔍 Zoom: <strong id="zoom-level">12</strong> — <span id="zoom-mode">Сетка</span>
+                </div>
+                
+                <!-- Информация о выбранном районе -->
+                <div id="district-info" style="display: none; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-radius: 6px; border-left: 4px solid #1976d2;">
+                    <div style="font-weight: bold; font-size: 12px; color: #1565c0; margin-bottom: 6px;">
+                        <i class="fas fa-map-marker-alt me-1"></i>
+                        <span id="district-info-name">Район</span>
+                    </div>
+                    <div style="font-size: 11px; color: #333;">
+                        <div style="margin-bottom: 4px;">👥 Население: <strong id="district-info-population">—</strong></div>
+                        <div style="margin-bottom: 4px;">📊 Плотность: <strong id="district-info-density">—</strong> чел/км²</div>
+                        <div>🏠 Зданий: <strong id="district-info-buildings">—</strong></div>
+                    </div>
                 </div>
             </div>
             <div id="map"></div>
@@ -1005,34 +1127,44 @@
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAg9d_gnmc2UZWUCFD6QkKGKqgO2v0spuA&libraries=visualization&callback=initMap" defer></script>
     
     <script>
-        // Global variables
+        // ═══════════════════════════════════════════════════════════════
+        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ═══════════════════════════════════════════════════════════════
+        
+        const ZOOM_THRESHOLD = 15;
+        const MODE_GRID = 'grid';
+        const MODE_HEATMAP = 'heatmap';
+
         let map;
         let heatmap;
         let suggestionMarker;
         let districtsPolygons = [];
         let schoolsMarkers = [];
         let residentialMarkers = [];
+        let gridCellsRectangles = [];
+        let currentZoom = 12;
+        let currentMode = MODE_GRID;
+        let showSchoolsLayer = true;
+        let isCityDataReady = false;
         
         // Переменные для выбора районов
         let selectedDistricts = new Set();
-        let districtPolygonMap = new Map(); // Карта: название района -> полигон
+        let districtPolygonMap = new Map();
         
-        // Состояние слоев - residential теперь включен по умолчанию
-        let layersState = {
-            heatmap: true,
-            schools: true,
-            residential: true  // ✅ Включаем маркеры зданий по умолчанию
-        };
-        
-        // Данные (убрали commercial)
+        // Данные
         let cityData = {
             districts: [],
             schools: [],
-            residential: [],
-            heatmapData: []
+            gridCells: [],      // 🆕 Ячейки сетки 500x500м
+            heatmapData: [],
+            allBuildings: [],   // 🚀 ВСЕ здания для клиентского кеша
+            stats: {}
         };
 
-        // Initialize map
+        // ═══════════════════════════════════════════════════════════════
+        // ИНИЦИАЛИЗАЦИЯ КАРТЫ
+        // ═══════════════════════════════════════════════════════════════
+        
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
                 center: { lat: 42.87, lng: 74.59 },
@@ -1059,110 +1191,72 @@
                 fullscreenControl: true
             });
 
-            // 🎯 УМНОЕ ПЕРЕКЛЮЧЕНИЕ: слушаем изменение zoom
-            // С debounce для оптимизации производительности
-            let zoomTimeout = null;
-            let lastProcessedZoom = map.getZoom();
+            // Слушатель изменения zoom для динамического переключения
+            map.addListener('zoom_changed', onZoomChanged);
+            map.addListener('idle', onMapIdle);
             
-            map.addListener('zoom_changed', () => {
-                // Отменяем предыдущий таймаут
-                if (zoomTimeout) clearTimeout(zoomTimeout);
-                
-                // Debounce: ждем 300ms после последнего изменения zoom
-                zoomTimeout = setTimeout(() => {
-                    const currentZoom = map.getZoom();
-                    // Обновляем только если zoom изменился существенно
-                    // или пересекли порог 14
-                    const crossedThreshold = (lastProcessedZoom < 14 && currentZoom >= 14) || 
-                                            (lastProcessedZoom >= 14 && currentZoom < 14);
-                    
-                    if (crossedThreshold || Math.abs(currentZoom - lastProcessedZoom) >= 1) {
-                        handleZoomChange();
-                        lastProcessedZoom = currentZoom;
-                    }
-                }, 300);
-            });
-
             loadAllCityData();
         }
 
-        // 🔄 Обработка изменения zoom
-        function handleZoomChange() {
-            const currentZoom = map.getZoom();
-            console.log(`🔍 Zoom изменился: ${currentZoom}`);
-
-            // ПРАВИЛО: zoom < 14 → только heatmap, zoom >= 14 → маркеры
-            if (currentZoom < 14) {
-                // Далеко - показываем общую картину (heatmap)
-                console.log('📊 Zoom < 14: показываем HEATMAP, скрываем маркеры');
-                showHeatmapOnly();
-            } else {
-                // Близко - показываем детали (маркеры)
-                console.log('🏠 Zoom >= 14: показываем МАРКЕРЫ, скрываем heatmap');
-                showMarkersOnly();
-            }
-        }
-
-        // Показать только heatmap
-        function showHeatmapOnly() {
-            // ✅ ИСПРАВЛЕНИЕ: Показываем heatmap ТОЛЬКО если она включена в layersState
-            if (layersState.heatmap) {
-                if (heatmap) {
-                    heatmap.setMap(map);
-                } else if (cityData.heatmapData.length > 0) {
-                    displayHeatmap();
-                }
-            }
-
-            // Скрываем маркеры жилых домов
-            residentialMarkers.forEach(marker => {
-                marker.setMap(null);
-            });
-
-            // ✅ ИСПРАВЛЕНИЕ: Школы показываем только если они включены
-            if (layersState.schools) {
-                schoolsMarkers.forEach(marker => {
-                    marker.setMap(map);
-                });
-            }
-        }
-
-        // Показать только маркеры
-        function showMarkersOnly() {
-            // Скрываем heatmap
-            if (heatmap) {
-                heatmap.setMap(null);
-            }
-
-            // ✅ ИСПРАВЛЕНИЕ: Показываем маркеры ТОЛЬКО если слой включен
-            if (layersState.residential) {
-                // 🚀 ОПТИМИЗАЦИЯ: Просто показываем уже созданные маркеры
-                // (Кластеров мало, не нужно пересоздавать при каждом zoom)
-                if (residentialMarkers.length === 0 && cityData.residential.length > 0) {
-                    displayResidential();
+        // ═══════════════════════════════════════════════════════════════
+        // УПРАВЛЕНИЕ РЕЖИМАМИ И СЛОЯМИ
+        // ═══════════════════════════════════════════════════════════════
+        
+        function setMapMode(mode) {
+            currentMode = mode;
+            console.log('Режим карты: ' + mode);
+            
+            document.querySelectorAll('input[name="mapMode"]').forEach(function(input) {
+                var label = input.parentElement;
+                if (input.value === mode) {
+                    label.style.background = '#e8f5e9';
+                    label.style.borderColor = '#00B050';
                 } else {
-                    // Просто показываем существующие маркеры
-                    residentialMarkers.forEach(marker => {
-                        marker.setMap(map);
-                    });
+                    label.style.background = '#fff';
+                    label.style.borderColor = '#ddd';
                 }
-            }
-
-            // ✅ ИСПРАВЛЕНИЕ: Школы показываем только если они включены
-            if (layersState.schools) {
-                schoolsMarkers.forEach(marker => {
-                    marker.setMap(map);
-                });
-            }
+            });
+            
+            renderMap();
         }
         
-        // Очистить только маркеры жилых домов
-        function clearResidentialMarkers() {
-            residentialMarkers.forEach(marker => marker.setMap(null));
-            residentialMarkers = [];
+        function toggleSchools() {
+            showSchoolsLayer = document.getElementById('schools-checkbox').checked;
+            console.log('Школы: ' + (showSchoolsLayer ? 'вкл' : 'выкл'));
+            renderMap();
+        }
+        
+        function onZoomChanged() {
+            currentZoom = map.getZoom();
+            updateZoomIndicator();
+        }
+        
+        function onMapIdle() {
+            if (!isCityDataReady) return;
+            currentZoom = map.getZoom();
+            updateZoomIndicator();
+            renderMap();
+        }
+        
+        function updateZoomIndicator() {
+            var zoomLevelEl = document.getElementById('zoom-level');
+            var zoomModeEl = document.getElementById('zoom-mode');
+            if (zoomLevelEl) zoomLevelEl.textContent = currentZoom;
+            if (zoomModeEl) {
+                if (currentZoom >= ZOOM_THRESHOLD) {
+                    zoomModeEl.textContent = 'Здания';
+                    zoomModeEl.style.color = '#ff6600';
+                } else {
+                    zoomModeEl.textContent = currentMode === MODE_HEATMAP ? 'Heatmap' : 'Сетка';
+                    zoomModeEl.style.color = '#00B050';
+                }
+            }
         }
 
-        // Загрузка данных
+        // ═══════════════════════════════════════════════════════════════
+        // ЗАГРУЗКА ДАННЫХ
+        // ═══════════════════════════════════════════════════════════════
+
         async function loadAllCityData() {
             try {
                 console.log('🔄 Загружаем данные города...');
@@ -1176,30 +1270,38 @@
                         districts: data.districts || [],
                         schools: data.schools || [],
                         residential: data.residential_buildings || [],
-                        heatmapData: data.heatmap_data || []
+                        allBuildings: data.all_buildings || [],  // ВСЕ здания для кеша
+                        gridCells: data.grid_cells || [],
+                        heatmapData: data.heatmap_data || [],
+                        stats: data.stats || {}
                     };
 
                     console.log('✅ Данные загружены:');
                     console.log(`📍 Районов: ${cityData.districts.length}`);
                     console.log(`🏫 Школ: ${cityData.schools.length}`);
-                    console.log(`🏠 Кластеров зданий: ${cityData.residential.length} (из ${data.raw_buildings_count || '?'} зданий)`);
-                    console.log(`🔥 Точек тепловой карты: ${cityData.heatmapData.length}`);
+                    console.log(`🏠 Кластеров зданий: ${cityData.residential.length}`);
+                    console.log(`🏠 Всего зданий (кеш): ${cityData.allBuildings.length}`);
+                    console.log(`🔳 Ячеек сетки: ${cityData.gridCells.length}`);
+                    console.log(`🔥 Точек heatmap: ${cityData.heatmapData.length}`);
                     
-                    // Статистика оптимизации
-                    if (data.stats) {
-                        console.log(`📊 Статистика:`);
-                        console.log(`   • Всего зданий: ${data.stats.residential_count}`);
-                        console.log(`   • Кластеров: ${data.stats.clusters_count}`);
-                        console.log(`   • Сжатие: ${data.stats.compression_ratio}`);
-                        console.log(`   • Население: ~${data.stats.total_population?.toLocaleString() || '?'} чел.`);
+                    // Показываем статистику населения
+                    if (data.stats && data.stats.total_population) {
+                        const statsDiv = document.getElementById('population-stats');
+                        const statsContent = document.getElementById('stats-content');
+                        if (statsDiv && statsContent) {
+                            statsDiv.style.display = 'block';
+                            statsContent.innerHTML = `
+                                ~${data.stats.total_population.toLocaleString()} чел.<br>
+                                <small>Зданий: ${data.stats.residential_count?.toLocaleString() || '?'}</small>
+                            `;
+                        }
                     }
-                    
-                    // Проверяем геометрию районов
-                    cityData.districts.forEach((district, index) => {
-                        console.log(`🗺️ Район "${district.name}": геометрия = ${district.geometry ? district.geometry.length : 0} полигонов`);
-                    });
 
-                    displayAllLayers();
+                    // Данные готовы
+                    isCityDataReady = true;
+                    currentZoom = map.getZoom();
+                    updateZoomIndicator();
+                    renderMap();
                 } else {
                     console.error('❌ Ошибка API:', data.error);
                 }
@@ -1208,40 +1310,104 @@
             }
         }
 
-        // Отображение слоев с учетом zoom
-        function displayAllLayers() {
-            console.log('🔄 Начинаем отображение всех слоев...');
-            console.log('📊 Состояние слоев:', layersState);
+        // ═══════════════════════════════════════════════════════════════
+        // ОТОБРАЖЕНИЕ СЛОЕВ - ZOOM-BASED ДИНАМИЧЕСКОЕ ПЕРЕКЛЮЧЕНИЕ
+        // ═══════════════════════════════════════════════════════════════
+        
+        // Переменные для отслеживания текущего режима отображения
+        var lastDisplayMode = null;  // 'grid', 'heatmap', 'buildings'
+        var districtsDisplayed = false;
+        
+        function renderMap() {
+            if (!isCityDataReady || !map) return;
             
-            clearAllLayers();
+            var zoom = map.getZoom();
+            var newDisplayMode;
             
-            // Всегда показываем границы районов
-            console.log('🗺️ Отображаем границы районов...');
-            displayDistricts();
-            
-            // Всегда показываем школы (важная инфраструктура)
-            if (layersState.schools) {
-                console.log('🏫 Отображаем школы...');
-                displaySchools();
-            }
-            
-            // 🎯 Умное переключение heatmap/маркеры
-            const currentZoom = map.getZoom();
-            if (currentZoom < 14) {
-                // Далеко - только heatmap
-                if (layersState.heatmap) {
-                    console.log('🔥 Zoom < 14: отображаем HEATMAP');
-                    displayHeatmap();
-                }
+            // Определяем режим отображения
+            if (zoom >= ZOOM_THRESHOLD) {
+                newDisplayMode = 'buildings';
             } else {
-                // Близко - маркеры зданий
-                if (layersState.residential) {
-                    console.log('🏠 Zoom >= 14: отображаем МАРКЕРЫ зданий');
-                    displayResidential();
-                }
+                newDisplayMode = currentMode;
             }
             
-            console.log('✅ Отображение всех слоев завершено');
+            // Показываем районы только один раз
+            if (!districtsDisplayed) {
+                displayDistricts();
+                districtsDisplayed = true;
+            }
+            
+            // Если режим изменился - полная перерисовка
+            if (newDisplayMode !== lastDisplayMode) {
+                console.log('Режим изменен: ' + lastDisplayMode + ' -> ' + newDisplayMode);
+                clearDataLayers();  // Очищаем только данные, не районы
+                lastDisplayMode = newDisplayMode;
+                
+                if (newDisplayMode === 'buildings') {
+                    console.log('ZOOM >= 15: Показываем здания');
+                    displayBuildingsInViewport();
+                } else {
+                    // Только сетка (heatmap убрана)
+                    console.log('ZOOM < 15: Показываем Сетку');
+                    displayGridCells();
+                }
+            } else if (newDisplayMode === 'buildings') {
+                // Режим зданий - обновляем только маркеры в viewport (быстро!)
+                displayBuildingsInViewport();
+            }
+            
+            // Школы
+            updateSchoolsVisibility();
+        }
+        
+        function updateSchoolsVisibility() {
+            if (showSchoolsLayer && schoolsMarkers.length === 0) {
+                displaySchools();
+            } else if (!showSchoolsLayer && schoolsMarkers.length > 0) {
+                schoolsMarkers.forEach(function(m) { m.setMap(null); });
+                schoolsMarkers = [];
+            }
+        }
+        
+        // Совместимость со старым кодом
+        function displayAllLayers() {
+            renderMap();
+        }
+        
+        // Очищаем только слои данных (не районы!)
+        function clearDataLayers() {
+            // Очистка тепловой карты
+            if (heatmap) {
+                heatmap.setMap(null);
+                heatmap = null;
+            }
+            
+            // Очистка сетки
+            gridCellsRectangles.forEach(function(rect) {
+                if (rect && typeof rect.setMap === 'function') {
+                    rect.setMap(null);
+                }
+            });
+            gridCellsRectangles = [];
+            
+            // Очистка маркеров зданий
+            residentialMarkers.forEach(function(marker) {
+                if (marker && typeof marker.setMap === 'function') {
+                    marker.setMap(null);
+                }
+            });
+            residentialMarkers = [];
+            
+            // Очищаем кеш маркеров зданий - СНАЧАЛА удаляем с карты!
+            if (typeof buildingMarkersMap !== 'undefined' && buildingMarkersMap.size > 0) {
+                buildingMarkersMap.forEach(function(marker) {
+                    if (marker && typeof marker.setMap === 'function') {
+                        marker.setMap(null);
+                    }
+                });
+                buildingMarkersMap.clear();
+                console.log('✅ Маркеры зданий очищены');
+            }
         }
 
         function clearAllLayers() {
@@ -1253,6 +1419,15 @@
                 heatmap = null;
                 console.log('✅ Тепловая карта очищена');
             }
+            
+            // 🆕 Очистка прямоугольников сетки
+            gridCellsRectangles.forEach(rect => {
+                if (rect && typeof rect.setMap === 'function') {
+                    rect.setMap(null);
+                }
+            });
+            gridCellsRectangles = [];
+            console.log('✅ Сетка очищена');
             
             // Очистка полигонов районов - ИСПРАВЛЕНО
             districtPolygonMap.forEach((polygons, districtId) => {
@@ -1301,12 +1476,26 @@
                 weight: point.weight
             }));
 
+            // 🆕 УЛУЧШЕННЫЙ HEATMAP: больший радиус, плавный градиент
             heatmap = new google.maps.visualization.HeatmapLayer({
                 data: heatmapData,
                 map: map,
-                radius: 25,
-                opacity: 0.8
+                radius: 40,          // Увеличенный радиус для размытости
+                opacity: 0.75,
+                maxIntensity: 3,     // Усиленный контраст
+                dissipating: true,   // Сохранять размытость при зуме
+                gradient: [
+                    'rgba(0, 255, 0, 0)',      // Прозрачный
+                    'rgba(0, 255, 0, 0.4)',    // Зеленый
+                    'rgba(144, 238, 144, 0.6)', // Светло-зеленый
+                    'rgba(255, 255, 0, 0.7)',  // Желтый
+                    'rgba(255, 165, 0, 0.8)',  // Оранжевый
+                    'rgba(255, 69, 0, 0.9)',   // Красно-оранжевый
+                    'rgba(255, 0, 0, 1)'       // Красный
+                ]
             });
+            
+            console.log(`🔥 Heatmap создан с ${heatmapData.length} точками, радиус: 40`);
         }
 
         function displayDistricts() {
@@ -1351,34 +1540,17 @@
 
                     const polygon = new google.maps.Polygon({
                         paths: polygonPath,
-                        strokeColor: '#4a4a4a',
+                        strokeColor: '#333333',
                         strokeOpacity: 0.8,
-                        strokeWeight: 2,
-                        fillColor: '#e5e5e5',
-                        fillOpacity: 0.2,
+                        strokeWeight: 3,
+                        fillColor: '#000000',
+                        fillOpacity: 0.0,  // Полностью прозрачная заливка!
+                        clickable: false,   // Клики проходят сквозь
                         map: map
                     });
 
-                    // Информационное окно
-                    const infoWindow = new google.maps.InfoWindow({
-                        content: `
-                            <div style="padding: 10px;">
-                                <h4 style="margin: 0 0 10px 0; color: #333;">${district.name}</h4>
-                                <p style="margin: 5px 0;"><strong>Плотность:</strong> ${district.population_density} чел/км²</p>
-                            </div>
-                        `
-                    });
-
-                    // Клик по полигону на карте
-                    polygon.addListener('click', (event) => {
-                        console.log(`🖱️ Клик по району "${district.name}"`);
-                        const districtId = getDistrictIdByName(district.name);
-                        if (districtId) {
-                            toggleDistrictSelection(districtId);
-                        }
-                        infoWindow.setPosition(event.latLng);
-                        infoWindow.open(map);
-                    });
+                    // Районы теперь некликабельные - инфо показывается только в боковом меню
+                    // Клики проходят сквозь к ячейкам сетки
 
                     // Сохраняем полигон в карте - ИСПРАВЛЕНО
                     const districtId = getDistrictIdByName(district.name);
@@ -1438,26 +1610,36 @@
             cityData.schools.forEach((school, index) => {
                 // Цвет маркера в зависимости от загруженности
                 let markerColor = '#4CAF50'; // зеленый - нормально
+                let statusEmoji = '✅';
                 if (school.occupancy_rate > 120) {
                     markerColor = '#f44336'; // красный - критическая перегрузка
+                    statusEmoji = '🔴';
                 } else if (school.occupancy_rate > 100) {
                     markerColor = '#FF9800'; // оранжевый - перегружена
+                    statusEmoji = '🟠';
                 } else if (school.occupancy_rate > 80) {
                     markerColor = '#FFC107'; // желтый - высокая загруженность
+                    statusEmoji = '🟡';
                 }
+
+                // SVG иконка школы (книга/здание школы)
+                const schoolIcon = {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
+                            <circle cx="15" cy="15" r="13" fill="${markerColor}" stroke="white" stroke-width="2"/>
+                            <text x="15" y="20" text-anchor="middle" font-size="14" fill="white">🏫</text>
+                        </svg>
+                    `),
+                    scaledSize: new google.maps.Size(30, 30),
+                    anchor: new google.maps.Point(15, 15)
+                };
 
                 const marker = new google.maps.Marker({
                     position: { lat: parseFloat(school.lat), lng: parseFloat(school.lng) },
                     map: map,
-                    title: school.name,
-                    icon: {
-                        path: google.maps.SymbolPath.CIRCLE,
-                        scale: 10,
-                        fillColor: markerColor,
-                        fillOpacity: 0.9,
-                        strokeColor: '#ffffff',
-                        strokeWeight: 2
-                    }
+                    title: school.name + ' (' + school.occupancy_rate + '%)',
+                    icon: schoolIcon,
+                    zIndex: 1000  // Школы поверх зданий
                 });
 
                 // Создаем детальное окно информации
@@ -1508,100 +1690,327 @@
             console.log(`🏫 Отображено ${schoolsMarkers.length} школ на карте`);
         }
 
-        function displayResidential() {
-            if (cityData.residential.length === 0) return;
-
-            // 🚀 ОПТИМИЗАЦИЯ: Данные уже кластеризованы на сервере!
-            // Теперь мы получаем ~500-800 кластеров вместо 10000+ зданий
-            const currentZoom = map.getZoom();
+        // 🆕 ПОЛНОСТЬЮ ПЕРЕРАБОТАННАЯ ФУНКЦИЯ: Viewport culling + отдельные здания
+        
+        async function displayResidential() {
+            var zoom = map.getZoom();
             
-            // Показываем все кластеры - их уже мало
-            const displayData = cityData.residential;
+            // При zoom < 15 показываем сетку 500x500м вместо зданий
+            if (zoom < 15) {
+                displayGridCells();
+                return;
+            }
             
-            console.log(`📊 Отображаем ${displayData.length} кластеров (zoom: ${currentZoom})`);
-
-            displayData.forEach(cluster => {
-                // Данные из кластера
-                const buildingsCount = cluster.buildings_count || 1;
-                const totalPopulation = cluster.total_population || 0;
-                const avgLevels = cluster.avg_levels || 1;
-                const colorCategory = cluster.color_category || 'private';
+            // При zoom >= 15 загружаем отдельные здания в viewport
+            await loadBuildingsInViewport();
+        }
+        
+        // 🆕 Отображение сетки 500x500м при отдалении
+        function displayGridCells() {
+            if (cityData.gridCells.length === 0) {
+                console.warn('⚠️ Нет данных сетки для отображения');
+                return;
+            }
+            
+            console.log(`🔳 Отображаем ${cityData.gridCells.length} ячеек сетки 500×500м`);
+            
+            // Размер ячейки в градусах
+            const CELL_SIZE_LAT = 0.0045;  // ~500м
+            const CELL_SIZE_LNG = 0.006;   // ~500м
+            
+            cityData.gridCells.forEach(cell => {
+                // Границы ячейки
+                const north = cell.lat + CELL_SIZE_LAT / 2;
+                const south = cell.lat - CELL_SIZE_LAT / 2;
+                const east = cell.lng + CELL_SIZE_LNG / 2;
+                const west = cell.lng - CELL_SIZE_LNG / 2;
                 
-                // 🎨 ЦВЕТ по категории (на основе средней этажности)
-                const colorMap = {
-                    'high_rise': '#ff0000',   // Красный - высотки 9+
-                    'mid_rise': '#ff6600',    // Оранжевый - 6-8 этажей
-                    'soviet': '#ffcc00',      // Желтый - хрущевки 4-5
-                    'low_rise': '#88cc00',    // Салатовый - 2-3 этажа
-                    'private': '#00cc44'      // Зеленый - частный сектор
+                // Прямоугольник ячейки
+                const rect = new google.maps.Rectangle({
+                    bounds: {
+                        north: north,
+                        south: south,
+                        east: east,
+                        west: west
+                    },
+                    map: map,
+                    strokeColor: cell.color_hex || '#00cc44',
+                    strokeOpacity: 0,
+                    strokeWeight: 0,
+                    fillColor: cell.color_hex || '#00cc44',
+                    fillOpacity: 0.4,
+                    clickable: true
+                });
+                
+                // InfoWindow для ячейки
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `
+                        <div style="padding: 12px; min-width: 220px; font-family: Arial, sans-serif;">
+                            <h4 style="margin: 0 0 10px 0; color: ${cell.color_hex}; border-bottom: 2px solid ${cell.color_hex}; padding-bottom: 5px;">
+                                📊 Ячейка 500×500м
+                            </h4>
+                            <table style="width: 100%; font-size: 13px;">
+                                <tr><td style="color: #666;">Район:</td><td><strong>${cell.district || 'Не определён'}</strong></td></tr>
+                                <tr><td style="color: #666;">Зданий:</td><td><strong>${cell.buildings_count}</strong></td></tr>
+                                <tr><td style="color: #666;">Ср. этажность:</td><td><strong>${cell.avg_levels}</strong> эт.</td></tr>
+                                <tr style="background: #f5f5f5;">
+                                    <td style="padding: 5px 0; color: #333; font-weight: bold;">👥 Население:</td>
+                                    <td style="font-weight: bold;">~${cell.population.toLocaleString()} чел.</td>
+                                </tr>
+                                <tr style="background: ${cell.color_hex}20;">
+                                    <td style="padding: 5px 0; color: #333; font-weight: bold;">📈 Плотность:</td>
+                                    <td style="font-weight: bold; color: ${cell.color_hex};">${cell.density.toLocaleString()} чел/км²</td>
+                                </tr>
+                            </table>
+                        </div>
+                    `,
+                    position: { lat: cell.lat, lng: cell.lng }
+                });
+                
+                rect.addListener('click', () => {
+                    infoWindow.open(map);
+                });
+                
+                gridCellsRectangles.push(rect);
+            });
+            
+            console.log(`✅ Отображено ${gridCellsRectangles.length} ячеек сетки`);
+        }
+        
+        // 🚀 БЫСТРОЕ отображение зданий - инкрементальное!
+        var buildingMarkersMap = new Map();  // key: "lat,lng" -> marker
+        var pendingBuildingsRender = null;   // debounce
+        
+        function displayBuildingsInViewport() {
+            // Debounce - откладываем рендер на 50ms
+            if (pendingBuildingsRender) {
+                clearTimeout(pendingBuildingsRender);
+            }
+            
+            pendingBuildingsRender = setTimeout(function() {
+                doDisplayBuildingsInViewport();
+            }, 50);
+        }
+        
+        function doDisplayBuildingsInViewport() {
+            if (!cityData.allBuildings || cityData.allBuildings.length === 0) {
+                return;
+            }
+            
+            var bounds = map.getBounds();
+            if (!bounds) return;
+            
+            var zoom = map.getZoom();
+            
+            // Определяем лимит маркеров в зависимости от zoom
+            var maxMarkers;
+            if (zoom >= 18) {
+                maxMarkers = 3000;  // Очень близко - показываем много
+            } else if (zoom >= 17) {
+                maxMarkers = 2000;
+            } else if (zoom >= 16) {
+                maxMarkers = 1000;
+            } else {
+                maxMarkers = 500;   // zoom 15 - минимум
+            }
+            
+            var north = bounds.getNorthEast().lat();
+            var south = bounds.getSouthWest().lat();
+            var east = bounds.getNorthEast().lng();
+            var west = bounds.getSouthWest().lng();
+            
+            // Небольшой буфер для предзагрузки
+            var buffer = 0.003;
+            north += buffer;
+            south -= buffer;
+            east += buffer;
+            west -= buffer;
+            
+            // Фильтруем здания по viewport - МГНОВЕННО!
+            var visibleBuildings = [];
+            var visibleKeys = new Set();
+            
+            for (var i = 0; i < cityData.allBuildings.length; i++) {
+                var b = cityData.allBuildings[i];
+                if (b.lat >= south && b.lat <= north && b.lng >= west && b.lng <= east) {
+                    var key = b.lat.toFixed(5) + ',' + b.lng.toFixed(5);
+                    visibleKeys.add(key);
+                    
+                    // Добавляем только если еще нет маркера
+                    if (!buildingMarkersMap.has(key)) {
+                        visibleBuildings.push(b);
+                    }
+                }
+            }
+            
+            // Удаляем маркеры вне viewport (batch удаление)
+            var toRemove = [];
+            buildingMarkersMap.forEach(function(marker, key) {
+                if (!visibleKeys.has(key)) {
+                    toRemove.push(key);
+                }
+            });
+            
+            // Удаляем пачками для производительности
+            for (var r = 0; r < toRemove.length; r++) {
+                var marker = buildingMarkersMap.get(toRemove[r]);
+                if (marker) marker.setMap(null);
+                buildingMarkersMap.delete(toRemove[r]);
+            }
+            
+            // Сортируем по важности (многоэтажки первые)
+            visibleBuildings.sort(function(a, b) {
+                return (b.levels || 1) - (a.levels || 1);
+            });
+            
+            // Добавляем новые маркеры (с лимитом)
+            var added = 0;
+            var currentTotal = buildingMarkersMap.size;
+            
+            for (var j = 0; j < visibleBuildings.length && currentTotal + added < maxMarkers; j++) {
+                var building = visibleBuildings[j];
+                var key = building.lat.toFixed(5) + ',' + building.lng.toFixed(5);
+                
+                var newMarker = createBuildingMarker(building);
+                buildingMarkersMap.set(key, newMarker);
+                added++;
+            }
+            
+            if (added > 0 || toRemove.length > 0) {
+                console.log('Маркеры: +' + added + ' -' + toRemove.length + ', всего: ' + buildingMarkersMap.size);
+            }
+        }
+        
+        // Создание маркера здания (оптимизировано)
+        function createBuildingMarker(building) {
+            var colorMap = {
+                'high_rise': '#ff0000',
+                'soviet_high': '#ff3300',
+                'mid_rise': '#ff6600',
+                'soviet': '#ffcc00',
+                'low_rise': '#88cc00',
+                'private': '#00cc44',
+                'elite': '#9900ff'
+            };
+            var fillColor = colorMap[building.category] || '#00cc44';
+            var scale = Math.min(8, Math.max(4, 3 + building.levels * 0.4));
+            
+            var marker = new google.maps.Marker({
+                position: { lat: building.lat, lng: building.lng },
+                map: map,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: scale,
+                    fillColor: fillColor,
+                    fillOpacity: 0.8,
+                    strokeColor: '#333333',
+                    strokeWeight: 0.5
+                },
+                title: building.levels + ' эт., ~' + building.population + ' чел.',
+                optimized: true
+            });
+            
+            // Ленивая загрузка InfoWindow - только при клике
+            marker.addListener('click', function() {
+                var categoryNames = {
+                    'high_rise': 'Высотка (12+ эт.)',
+                    'soviet_high': '9-этажка',
+                    'mid_rise': 'Многоэтажка (6-8 эт.)',
+                    'soviet': 'Хрущевка (4-5 эт.)',
+                    'low_rise': 'Малоэтажка (2-3 эт.)',
+                    'private': 'Частный дом',
+                    'elite': 'Элитный дом'
                 };
-                const fillColor = colorMap[colorCategory] || '#00cc44';
                 
-                // 📐 РАЗМЕР зависит от населения (логарифмическая шкала)
-                // Минимум 5px, максимум 18px
-                const scale = Math.min(18, Math.max(5, 5 + Math.log(totalPopulation + 1) * 1.5));
+                var infoWindow = new google.maps.InfoWindow({
+                    content: '<div style="padding: 12px; min-width: 220px;">' +
+                        '<h4 style="margin: 0 0 10px 0; color: ' + fillColor + ';">' + 
+                        (categoryNames[building.category] || 'Жилой дом') + '</h4>' +
+                        '<p><strong>Этажей:</strong> ' + building.levels + ' ' + (building.has_levels_data ? '✅' : '(оценка)') + '</p>' +
+                        '<p><strong>Площадь:</strong> ' + building.area_m2.toLocaleString() + ' м²</p>' +
+                        '<p style="font-size: 15px; font-weight: bold;">👥 ~' + building.population + ' чел.</p>' +
+                        '</div>'
+                });
+                infoWindow.open(map, marker);
+            });
+            
+            return marker;
+        }
+        
+        // Совместимость
+        function displayBuildingsFromCache() {
+            displayBuildingsInViewport();
+        }
+        async function loadBuildingsInViewport() {
+            displayBuildingsInViewport();
+        }
+        
+        // 🆕 Отображение отдельных зданий
+        function displayIndividualBuildings(buildings) {
+            console.log(`🏠 Отображаем ${buildings.length} отдельных зданий`);
+            
+            buildings.forEach(building => {
+                // Цвет по категории
+                const colorMap = {
+                    'high_rise': '#ff0000',
+                    'soviet_high': '#ff3300',
+                    'mid_rise': '#ff6600',
+                    'soviet': '#ffcc00',
+                    'low_rise': '#88cc00',
+                    'private': '#00cc44',
+                    'elite': '#9900ff'
+                };
+                const fillColor = colorMap[building.category] || '#00cc44';
+                
+                // Размер маркера по этажности
+                const scale = Math.min(10, Math.max(4, 3 + building.levels * 0.5));
                 
                 const marker = new google.maps.Marker({
-                    position: { lat: cluster.lat, lng: cluster.lng },
+                    position: { lat: building.lat, lng: building.lng },
                     map: map,
                     icon: {
                         path: google.maps.SymbolPath.CIRCLE,
                         scale: scale,
                         fillColor: fillColor,
-                        fillOpacity: 0.75,
+                        fillOpacity: 0.8,
                         strokeColor: '#333333',
                         strokeWeight: 0.5
                     },
-                    title: `${buildingsCount} зданий, ~${totalPopulation} чел.`,
-                    optimized: true  // Важно для производительности
+                    title: `${building.levels} эт., ~${building.population} чел.`,
+                    optimized: true
                 });
-
-                // Название категории для отображения
-                const categoryNames = {
-                    'high_rise': 'Высотки (9+ эт.)',
-                    'mid_rise': 'Многоэтажки (6-8 эт.)',
-                    'soviet': 'Хрущевки (4-5 эт.)',
-                    'low_rise': 'Дома 2-3 эт.',
-                    'private': 'Частный сектор'
-                };
-                const categoryName = categoryNames[colorCategory] || 'Смешанный';
                 
-                // Breakdown по типам если есть
-                let categoriesHtml = '';
-                if (cluster.categories) {
-                    const catEntries = Object.entries(cluster.categories)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 3);
-                    if (catEntries.length > 0) {
-                        categoriesHtml = `
-                            <tr><td colspan="2" style="padding-top: 8px; font-size: 11px; color: #666;">
-                                Типы: ${catEntries.map(([k,v]) => `${k}: ${v}`).join(', ')}
-                            </td></tr>
-                        `;
-                    }
-                }
-
+                // Категория для отображения
+                const categoryNames = {
+                    'high_rise': 'Высотка (12+ эт.)',
+                    'soviet_high': '9-этажка',
+                    'mid_rise': 'Многоэтажка (6-8 эт.)',
+                    'soviet': 'Хрущевка (4-5 эт.)',
+                    'low_rise': 'Малоэтажка (2-3 эт.)',
+                    'private': 'Частный дом',
+                    'elite': 'Элитный дом'
+                };
+                
                 const infoWindow = new google.maps.InfoWindow({
                     content: `
-                        <div style="padding: 12px; min-width: 280px; font-family: Arial, sans-serif;">
-                            <h4 style="margin: 0 0 10px 0; color: #333; border-bottom: 2px solid ${fillColor}; padding-bottom: 5px;">
-                                📍 Кластер зданий
+                        <div style="padding: 12px; min-width: 240px; font-family: Arial, sans-serif;">
+                            <h4 style="margin: 0 0 10px 0; color: ${fillColor}; border-bottom: 2px solid ${fillColor}; padding-bottom: 5px;">
+                                🏠 ${categoryNames[building.category] || 'Жилой дом'}
                             </h4>
                             <table style="width: 100%; font-size: 13px;">
-                                <tr><td style="padding: 3px 0; color: #666;">Категория:</td><td style="color: ${fillColor}; font-weight: bold;">${categoryName}</td></tr>
-                                <tr><td style="padding: 3px 0; color: #666;">Зданий в кластере:</td><td><strong>${buildingsCount}</strong></td></tr>
-                                <tr><td style="padding: 3px 0; color: #666;">Средняя этажность:</td><td><strong>${avgLevels.toFixed(1)}</strong> эт.</td></tr>
-                                <tr><td style="padding: 3px 0; color: #666;">С данными OSM:</td><td>${cluster.with_levels_data || 0} из ${buildingsCount}</td></tr>
-                                <tr style="background: #f5f5f5;"><td style="padding: 6px 3px; color: #333; font-weight: bold;">👥 Население:</td><td style="font-size: 16px; font-weight: bold; color: #333;">~${totalPopulation.toLocaleString()} чел.</td></tr>
-                                ${categoriesHtml}
+                                <tr><td style="color: #666;">Тип:</td><td><strong>${building.building_type}</strong></td></tr>
+                                <tr><td style="color: #666;">Этажность:</td><td><strong>${building.levels}</strong> эт. ${building.has_levels_data ? '✅' : '(оценка)'}</td></tr>
+                                <tr><td style="color: #666;">Площадь:</td><td><strong>${building.area_m2.toLocaleString()}</strong> м²</td></tr>
+                                ${building.address ? `<tr><td style="color: #666;">Адрес:</td><td>${building.address}</td></tr>` : ''}
+                                <tr style="background: #f5f5f5;">
+                                    <td style="padding: 6px 0; color: #333; font-weight: bold;">👥 Население:</td>
+                                    <td style="font-size: 15px; font-weight: bold; color: #333;">~${building.population} чел.</td>
+                                </tr>
                             </table>
-                            <div style="margin-top: 10px; padding: 8px; background: #e8f4fd; border-radius: 4px; font-size: 11px; color: #555;">
-                                💡 Это кластер из нескольких зданий. Приблизьте карту для деталей.
-                            </div>
                         </div>
                     `
                 });
-
+                
                 marker.addListener('click', () => {
                     infoWindow.open(map, marker);
                 });
@@ -1609,28 +2018,7 @@
                 residentialMarkers.push(marker);
             });
             
-            console.log(`✅ Отображено ${residentialMarkers.length} маркеров кластеров`);
-        }
-
-        function toggleLayer(layerName) {
-            console.log(`🔘 Переключение слоя "${layerName}"`);
-            console.log(`📊 Текущее состояние: ${layersState[layerName]}`);
-            
-            layersState[layerName] = !layersState[layerName];
-            
-            console.log(`📊 Новое состояние: ${layersState[layerName]}`);
-            
-            const button = document.getElementById(`${layerName}-btn`);
-            if (layersState[layerName]) {
-                button.classList.add('active');
-                console.log(`✅ Кнопка "${layerName}" активирована`);
-            } else {
-                button.classList.remove('active');
-                console.log(`❌ Кнопка "${layerName}" деактивирована`);
-            }
-            
-            console.log('🔄 Перерисовываем слои...');
-            displayAllLayers();
+            console.log(`✅ Отображено ${residentialMarkers.length} отдельных зданий`);
         }
 
         // ШКОЛЬНАЯ ИНФОРМАЦИЯ
@@ -1747,43 +2135,96 @@
                 selectedDistricts.delete(districtId);
                 if (districtItem) districtItem.classList.remove('selected');
                 
-                // Возвращаем обычный стиль полигонам
+                // Возвращаем обычный стиль полигонам (прозрачные, некликабельные)
                 if (polygons && Array.isArray(polygons)) {
                     polygons.forEach(polygon => {
                         if (polygon && typeof polygon.setOptions === 'function') {
                             polygon.setOptions({
-                                fillColor: '#e5e5e5',
-                                fillOpacity: 0.2,
-                                strokeWeight: 2,
-                                strokeColor: '#4a4a4a'
+                                fillColor: '#000000',
+                                fillOpacity: 0.0,
+                                strokeWeight: 3,
+                                strokeColor: '#333333'
                             });
                         }
                     });
                 }
+                hideDistrictInfo();
                 console.log(`❌ Район ${districtId} убран из выбора`);
             } else {
                 // Добавляем выбор
                 selectedDistricts.add(districtId);
                 if (districtItem) districtItem.classList.add('selected');
                 
-                // Подсвечиваем полигоны своим цветом
+                // Подсвечиваем полигоны - прозрачная заливка, яркая граница
                 if (polygons && Array.isArray(polygons)) {
                     polygons.forEach(polygon => {
                         if (polygon && typeof polygon.setOptions === 'function') {
                             polygon.setOptions({
                                 fillColor: districtColor,
-                                fillOpacity: 0.6,
-                                strokeWeight: 4,
+                                fillOpacity: 0.15,
+                                strokeWeight: 5,
                                 strokeColor: districtColor
                             });
                         }
                     });
                 }
+                showDistrictInfo(districtId);
                 console.log(`✅ Район ${districtId} добавлен в выбор с цветом ${districtColor}`);
             }
             
             console.log(`📊 Выбранные районы: [${Array.from(selectedDistricts).join(', ')}]`);
             updateAnalyzeButton();
+        }
+        
+        // Показать информацию о районе
+        function showDistrictInfo(districtId) {
+            var districtNames = {
+                'oktyabrsky': 'Октябрьский район',
+                'pervomaisky': 'Первомайский район',
+                'leninsky': 'Ленинский район',
+                'sverdlovsky': 'Свердловский район'
+            };
+            
+            var districtInfo = document.getElementById('district-info');
+            var nameEl = document.getElementById('district-info-name');
+            var populationEl = document.getElementById('district-info-population');
+            var densityEl = document.getElementById('district-info-density');
+            var buildingsEl = document.getElementById('district-info-buildings');
+            
+            if (!districtInfo) return;
+            
+            // Ищем данные района
+            var districtName = districtNames[districtId] || districtId;
+            var districtData = cityData.districts.find(function(d) { 
+                return d.name === districtName; 
+            });
+            
+            nameEl.textContent = districtName;
+            
+            if (districtData) {
+                populationEl.textContent = districtData.population ? districtData.population.toLocaleString() : '~' + (districtData.population_density * 20).toLocaleString();
+                densityEl.textContent = districtData.population_density ? districtData.population_density.toLocaleString() : '—';
+                buildingsEl.textContent = districtData.buildings_count ? districtData.buildings_count.toLocaleString() : '—';
+            } else {
+                // Считаем по сетке
+                var cells = cityData.gridCells.filter(function(c) { return c.district === districtName; });
+                var totalPop = cells.reduce(function(sum, c) { return sum + c.population; }, 0);
+                var totalBuildings = cells.reduce(function(sum, c) { return sum + c.buildings_count; }, 0);
+                var avgDensity = cells.length > 0 ? Math.round(totalPop / (cells.length * 0.25)) : 0;
+                
+                populationEl.textContent = '~' + totalPop.toLocaleString();
+                densityEl.textContent = avgDensity.toLocaleString();
+                buildingsEl.textContent = totalBuildings.toLocaleString();
+            }
+            
+            districtInfo.style.display = 'block';
+        }
+        
+        function hideDistrictInfo() {
+            var districtInfo = document.getElementById('district-info');
+            if (districtInfo && selectedDistricts.size === 0) {
+                districtInfo.style.display = 'none';
+            }
         }
 
         // Update analyze button
