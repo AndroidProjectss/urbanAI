@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from .services import OpenStreetMapService, GeminiService, PopulationService
 from .models import BuildingRequest, PopulationData
 from .enhanced_gemini_service import EnhancedGeminiService
+from .grid_service import GridService
 import json
 import random
 
@@ -40,13 +41,19 @@ def get_enhanced_heatmap_data(request):
     """
     API для получения данных тепловой карты с РЕАЛЬНЫМ расчетом плотности населения.
     
-    Использует формулу:
-    Население = (Площадь × Этажи × 0.75) / м²_на_человека
+    НОВАЯ СИСТЕМА (Grid System):
+    1. Разбиваем город на квадраты 500x500м
+    2. Считаем население для каждого здания по формуле
+    3. Группируем в ячейки сетки
+    4. Считаем плотность (чел/км²) для каждой ячейки
+    5. Привязываем "бесхозные" здания к ближайшему району
     
-    Где м²_на_человека:
-    - Элитки: 25-30 м²/чел
-    - Советские панельки: 18-20 м²/чел
-    - Частный сектор: 15 м²/чел
+    Формула населения:
+    - Частные дома: 4-12 чел. в зависимости от площади
+    - Многоэтажки: (Площадь × Этажи × 0.75) / м²_на_человека
+      • Элитки: 25 м²/чел
+      • Советские: 18 м²/чел
+    - Итоговый коэффициент: ×0.85 (подгонка под Нацстатком)
     """
     city = request.GET.get('city', 'Бишкек')
     
@@ -57,69 +64,154 @@ def get_enhanced_heatmap_data(request):
         print(f"🏙️ ЗАГРУЗКА ДАННЫХ ДЛЯ ГОРОДА: {city}")
         print(f"{'='*60}\n")
         
-        # Получаем все типы данных
+        # 1. Получаем районы
         districts_data = osm_service.get_districts_in_city(city)
+        
+        # 2. Получаем жилые здания (сырые данные)
         residential_data = osm_service.get_residential_buildings_in_city(city)
-        commercial_data = osm_service.get_commercial_places_in_city(city)
+        
+        # 3. Получаем школы
         schools_data = osm_service.get_schools_in_city(city)
         
-        # Рассчитываем общую статистику населения
-        total_population = sum(b.get('estimated_population', 0) for b in residential_data)
-        buildings_with_levels = sum(1 for b in residential_data if b.get('has_levels_data', False))
+        # 4. Коммерческие объекты (опционально)
+        commercial_data = osm_service.get_commercial_places_in_city(city)
         
-        # 🆕 РАССЧИТЫВАЕМ РЕАЛЬНУЮ ПЛОТНОСТЬ ПО РАЙОНАМ
-        if residential_data and districts_data:
-            districts_data = osm_service.calculate_district_population_density(
-                districts_data, residential_data
-            )
+        # ═══════════════════════════════════════════════════════════
+        # 🆕 GRID SYSTEM: Создаем сетку плотности 500x500м
+        # ═══════════════════════════════════════════════════════════
         
-        # 🚀 ОПТИМИЗАЦИЯ: Кластеризуем здания для быстрого отображения
-        # Вместо 10000+ зданий отправляем ~500-800 кластеров
+        print(f"\n{'='*60}")
+        print(f"🔳 СОЗДАНИЕ СЕТКИ ПЛОТНОСТИ 500×500м")
+        print(f"{'='*60}\n")
+        
+        grid_result = GridService.create_population_grid(
+            buildings=residential_data,
+            districts=districts_data
+        )
+        
+        grid_cells = grid_result['grid_cells']
+        total_population = grid_result['total_population']
+        grid_stats = grid_result['stats']
+        districts_population = grid_result['districts_population']
+        
+        # ═══════════════════════════════════════════════════════════
+        # 🔥 HEATMAP: Генерируем точки из сетки
+        # ═══════════════════════════════════════════════════════════
+        
+        heatmap_data = GridService.generate_heatmap_from_grid(grid_cells)
+        
+        # ═══════════════════════════════════════════════════════════
+        # 📊 Обновляем плотность районов на основе Grid
+        # ═══════════════════════════════════════════════════════════
+        
+        for district in districts_data:
+            name = district['name']
+            area_km2 = GridService.calculate_geometry_area_km2(district.get('geometry', []))
+            district['area_km2'] = round(area_km2, 2) if area_km2 else None
+            if name in districts_population:
+                pop_data = districts_population[name]
+                pop_data['area_km2'] = area_km2
+                district['calculated_population'] = pop_data['population']
+                district['buildings_count'] = pop_data['buildings']
+                if area_km2 > 0:
+                    district['population_density'] = int(pop_data['population'] / area_km2)
+                else:
+                    district['population_density'] = 0
+        
+        # ═══════════════════════════════════════════════════════════
+        # 🚀 ОПТИМИЗАЦИЯ: Кластеризуем здания для маркеров
+        # ═══════════════════════════════════════════════════════════
+        
         clustered_buildings = osm_service.cluster_buildings_for_display(
-            residential_data, grid_size=0.003  # ~300м ячейка
+            residential_data, grid_size=0.003
         )
         
-        # 🔥 ОПТИМИЗАЦИЯ: Генерируем оптимизированную heatmap
-        heatmap_data = osm_service.generate_optimized_heatmap(
-            residential_data, grid_size=0.002  # ~200м ячейка для heatmap
-        )
+        # ═══════════════════════════════════════════════════════════
+        # 🏠 ВСЕ ЗДАНИЯ: Для клиентского кеша (без API запросов при scroll)
+        # ═══════════════════════════════════════════════════════════
         
-        # Подсчет статистики по категориям зданий
-        category_stats = {}
+        all_buildings_cached = []
         for b in residential_data:
-            cat = b.get('building_category', 'unknown')
-            if cat not in category_stats:
-                category_stats[cat] = {'count': 0, 'population': 0}
-            category_stats[cat]['count'] += 1
-            category_stats[cat]['population'] += b.get('estimated_population', 0)
+            building_type = b.get('building_type', 'residential')
+            levels_str = b.get('levels')
+            area_m2 = b.get('area_m2', 100)
+            
+            levels = None
+            if levels_str:
+                try:
+                    levels = int(float(levels_str))
+                except:
+                    pass
+            
+            category, final_levels, population = GridService.calculate_building_population(
+                building_type, levels, area_m2, b.get('tags', {})
+            )
+            
+            all_buildings_cached.append({
+                'lat': b.get('lat', 0),
+                'lng': b.get('lng', 0),
+                'building_type': building_type,
+                'levels': final_levels,
+                'has_levels_data': b.get('has_levels_data', False),
+                'area_m2': area_m2,
+                'population': population,
+                'category': category,
+                'name': b.get('name', ''),
+                'address': b.get('address', '')
+            })
+        
+        print(f"   🏠 Зданий для кеша: {len(all_buildings_cached)}")
+        
+        print(f"\n{'='*60}")
+        print(f"✅ ДАННЫЕ ГОТОВЫ К ОТПРАВКЕ")
+        print(f"{'='*60}")
+        print(f"   📦 Ячеек сетки: {len(grid_cells)}")
+        print(f"   🏠 Кластеров зданий: {len(clustered_buildings)}")
+        print(f"   🔥 Точек heatmap: {len(heatmap_data)}")
+        print(f"   👥 Общее население: ~{total_population:,} чел.")
+        print(f"{'='*60}\n")
         
         return Response({
             'success': True,
             'city': city,
             'districts': districts_data,
-            # 🚀 ОПТИМИЗАЦИЯ: Отправляем кластеры вместо сырых зданий
-            'residential_buildings': clustered_buildings,  # Кластеры (~500-800 вместо 10000+)
-            'raw_buildings_count': len(residential_data),  # Оригинальное количество
-            'commercial_places': commercial_data,
+            
+            # 🆕 Grid System - ячейки сетки 500x500м
+            'grid_cells': grid_cells,
+            
+            # Кластеры зданий для маркеров
+            'residential_buildings': clustered_buildings,
+            'raw_buildings_count': len(residential_data),
+            
+            # 🆕 ВСЕ здания для клиентского кеша (мгновенное отображение)
+            'all_buildings': all_buildings_cached,
+            
+            # Школы и коммерция
             'schools': schools_data,
+            'commercial_places': commercial_data,
+            
+            # Heatmap
             'heatmap_data': heatmap_data,
+            
+            # Статистика
             'stats': {
                 'districts_count': len(districts_data),
                 'residential_count': len(residential_data),
                 'clusters_count': len(clustered_buildings),
-                'compression_ratio': f"{len(clustered_buildings)}/{len(residential_data)}",
-                'commercial_count': len(commercial_data),
+                'grid_cells_count': len(grid_cells),
                 'schools_count': len(schools_data),
                 'heatmap_points': len(heatmap_data),
-                # Новая статистика
                 'total_population': total_population,
-                'buildings_with_levels': buildings_with_levels,
-                'buildings_estimated': len(residential_data) - buildings_with_levels,
-                'category_breakdown': category_stats
+                'buildings_with_levels': grid_stats['with_levels_data'],
+                'buildings_estimated': grid_stats['estimated_levels'],
+                'category_breakdown': grid_stats['by_category'],
+                'districts_population': districts_population
             }
         })
     
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return Response({
             'success': False,
             'error': str(e)
@@ -406,4 +498,92 @@ def get_enhanced_school_info(request):
         })
         
     except Exception as e:
+        return Response({'success': False, 'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@api_view(['POST'])
+def get_buildings_in_viewport(request):
+    """
+    🆕 API для получения зданий в видимой области карты (viewport culling).
+    
+    Принимает:
+    - bounds: {north, south, east, west} - границы видимой области
+    - city: название города
+    
+    Возвращает:
+    - buildings: список зданий с подробной информацией о каждом
+    """
+    try:
+        data = json.loads(request.body)
+        bounds = data.get('bounds', {})
+        city = data.get('city', 'Бишкек')
+        
+        north = bounds.get('north', 90)
+        south = bounds.get('south', -90)
+        east = bounds.get('east', 180)
+        west = bounds.get('west', -180)
+        
+        print(f"\n📍 Запрос зданий в viewport:")
+        print(f"   Север: {north:.4f}, Юг: {south:.4f}")
+        print(f"   Восток: {east:.4f}, Запад: {west:.4f}")
+        
+        # Получаем все здания города (кешируются в OSM сервисе)
+        osm_service = OpenStreetMapService()
+        all_buildings = osm_service.get_residential_buildings_in_city(city)
+        
+        # Фильтруем по viewport
+        visible_buildings = []
+        for b in all_buildings:
+            lat = b.get('lat', 0)
+            lng = b.get('lng', 0)
+            if south <= lat <= north and west <= lng <= east:
+                # Расчет населения для каждого здания
+                building_type = b.get('building_type', 'residential')
+                levels_str = b.get('levels')
+                area_m2 = b.get('area_m2', 100)
+                
+                levels = None
+                if levels_str:
+                    try:
+                        levels = int(float(levels_str))
+                    except:
+                        pass
+                
+                category, final_levels, population = GridService.calculate_building_population(
+                    building_type, levels, area_m2, b.get('tags', {})
+                )
+                
+                visible_buildings.append({
+                    'lat': lat,
+                    'lng': lng,
+                    'building_type': building_type,
+                    'levels': final_levels,
+                    'has_levels_data': b.get('has_levels_data', False),
+                    'area_m2': area_m2,
+                    'population': population,
+                    'category': category,
+                    'name': b.get('name', ''),
+                    'address': b.get('address', '')
+                })
+        
+        # Ограничиваем количество для производительности
+        MAX_BUILDINGS = 500
+        if len(visible_buildings) > MAX_BUILDINGS:
+            # Сортируем по населению и берем самые важные
+            visible_buildings.sort(key=lambda x: -x['population'])
+            visible_buildings = visible_buildings[:MAX_BUILDINGS]
+        
+        print(f"   ✅ Найдено {len(visible_buildings)} зданий в viewport")
+        
+        return Response({
+            'success': True,
+            'buildings': visible_buildings,
+            'count': len(visible_buildings),
+            'total_in_city': len(all_buildings)
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return Response({'success': False, 'error': str(e)}, status=500)

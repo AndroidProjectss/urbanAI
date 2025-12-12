@@ -17,4 +17,7 @@ urlpatterns = [
     path('commercial-places/', views.get_commercial_places, name='commercial_places'),
     path('enhanced-school-info/', views.get_enhanced_school_info, name='enhanced_school_info'),
     path('analyze/', views.analyze_districts, name='analyze_districts'),
+    
+    # 🆕 API для зданий в viewport (viewport culling)
+    path('buildings-in-viewport/', views.get_buildings_in_viewport, name='buildings_in_viewport'),
 ]
