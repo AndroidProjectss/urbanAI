@@ -438,10 +438,14 @@ out geom;"""
                 estimated_capacity = school.estimated_capacity
                 occupancy = school.occupancy_rate
                 
+                # Проверяем наличие данных
+                has_data = school.total_students > 0 or estimated_capacity > 0
+                
                 # Определяем статус загруженности
-                status = "Нормальная"
-                status_color = "green"
-                if occupancy > 120:
+                if not has_data:
+                    status = "Нет данных"
+                    status_color = "gray"
+                elif occupancy > 120:
                     status = "Критическая перегрузка"
                     status_color = "red"
                 elif occupancy > 100:
@@ -450,6 +454,9 @@ out geom;"""
                 elif occupancy > 80:
                     status = "Высокая загруженность"
                     status_color = "yellow"
+                else:
+                    status = "Нормальная"
+                    status_color = "green"
                 
                 schools_data.append({
                     'id': school.id,
@@ -475,6 +482,7 @@ out geom;"""
                     'status_color': status_color,
                     'is_overloaded': occupancy > 100,
                     'has_capacity_data': school.max_capacity > 0 or school.real_capacity > 0,
+                    'has_any_data': has_data,
                     # Распределение по классам
                     'students_by_grade': {
                         '1': school.students_class_1,

@@ -1438,7 +1438,11 @@
             cityData.schools.forEach((school, index) => {
                 // Цвет маркера в зависимости от загруженности
                 let markerColor = '#4CAF50'; // зеленый - нормально
-                if (school.occupancy_rate > 120) {
+                
+                // Проверяем наличие данных
+                if (!school.has_any_data || school.status_color === 'gray') {
+                    markerColor = '#9E9E9E'; // серый - нет данных
+                } else if (school.occupancy_rate > 120) {
                     markerColor = '#f44336'; // красный - критическая перегрузка
                 } else if (school.occupancy_rate > 100) {
                     markerColor = '#FF9800'; // оранжевый - перегружена
@@ -1469,19 +1473,19 @@
                             <p style="margin: 5px 0; font-size: 13px;"><strong>🏘️ Район:</strong> ${school.district}</p>
                         </div>
                         
-                        <div style="background: ${school.status_color === 'red' ? '#ffebee' : school.status_color === 'orange' ? '#fff3e0' : school.status_color === 'yellow' ? '#fffde7' : '#e8f5e9'}; 
+                        <div style="background: ${school.status_color === 'gray' ? '#f5f5f5' : school.status_color === 'red' ? '#ffebee' : school.status_color === 'orange' ? '#fff3e0' : school.status_color === 'yellow' ? '#fffde7' : '#e8f5e9'}; 
                                     padding: 10px; border-radius: 5px; margin-bottom: 10px;">
-                            <p style="margin: 5px 0; font-size: 14px;"><strong>👥 Учеников:</strong> ${school.total_students > 0 ? school.total_students : 'нет данных'}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>👥 Учеников:</strong> ${school.total_students > 0 ? school.total_students : '<span style="color: #999;">нет данных</span>'}</p>
                             ${school.total_students > 0 ? `<p style="margin: 5px 0; font-size: 13px;">👧 Девочек: ${school.students_girls} | 👦 Мальчиков: ${school.students_boys}</p>` : ''}
-                            <p style="margin: 5px 0; font-size: 14px;"><strong>🏫 Классов:</strong> ${school.total_classes > 0 ? school.total_classes : 'нет данных'}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>🏫 Классов:</strong> ${school.total_classes > 0 ? school.total_classes : '<span style="color: #999;">нет данных</span>'}</p>
                             
                             ${school.max_capacity > 0 ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📊 Вместимость:</strong> ${school.max_capacity} мест</p>` : 
                               school.estimated_capacity > 0 && school.total_students > 0 ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📊 Расчетная вместимость:</strong> ~${school.estimated_capacity} мест <span style="color: #666; font-size: 11px;">(оценка)</span></p>` : ''}
                             
                             ${school.total_students > 0 && school.estimated_capacity > 0 ? `
-                            <p style="margin: 5px 0; font-size: 14px; font-weight: bold; color: ${school.status_color === 'red' ? '#d32f2f' : school.status_color === 'orange' ? '#f57c00' : school.status_color === 'yellow' ? '#f9a825' : '#388e3c'};">
+                            <p style="margin: 5px 0; font-size: 14px; font-weight: bold; color: ${school.status_color === 'gray' ? '#757575' : school.status_color === 'red' ? '#d32f2f' : school.status_color === 'orange' ? '#f57c00' : school.status_color === 'yellow' ? '#f9a825' : '#388e3c'};">
                                 📈 Загруженность: ${school.occupancy_rate}% - ${school.status}
-                            </p>` : '<p style="margin: 5px 0; font-size: 13px; color: #999;">📈 Недостаточно данных для расчета загруженности</p>'}
+                            </p>` : '<p style="margin: 5px 0; font-size: 13px; color: #999; font-style: italic;">📊 Недостаточно данных для расчета загруженности</p>'}
                         </div>
                         
                         ${school.phone ? `<p style="margin: 5px 0; font-size: 13px;"><strong>📞 Телефон:</strong> ${school.phone}</p>` : ''}
