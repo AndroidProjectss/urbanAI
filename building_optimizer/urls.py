@@ -44,4 +44,8 @@ urlpatterns = [
     path('ml/train-population/', views.ml_train_population_model, name='ml_train_population'),
     path('ml/predict-growth/', views.ml_predict_natural_growth, name='ml_predict_growth'),
     path('ml/predict-school-population/', views.ml_predict_school_population, name='ml_predict_school_pop'),
+    
+    # AI РЕКОМЕНДАЦИИ - Анализ и рекомендации по строительству школ
+    path('ai/recommendations/', views.ai_school_recommendations, name='ai_recommendations'),
+    path('ai/analyze-district/', views.ai_analyze_district, name='ai_analyze_district'),
 ]
