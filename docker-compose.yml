@@ -1,0 +1,38 @@
+# UrbanAI - Docker Compose для хакатона
+# Запускается на порту 8001
+
+version: '3.8'
+
+services:
+  urbanai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: urbanai_hackathon
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-me-in-production}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,your-domain.com}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      # Сохраняем базу данных между перезапусками
+      - urbanai_db:/app/db_data
+      - urbanai_static:/app/staticfiles
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  urbanai_db:
+  urbanai_static:

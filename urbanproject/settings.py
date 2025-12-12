@@ -8,9 +8,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-your-secret-key-here')
 
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+# Разрешенные хосты из env или дефолтные
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+
+# CSRF trusted origins для production
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8001',
+    'http://127.0.0.1:8001',
+]
+# Добавляем из ALLOWED_HOSTS
+for host in ALLOWED_HOSTS:
+    if host and host not in ('localhost', '127.0.0.1'):
+        CSRF_TRUSTED_ORIGINS.append(f'http://{host}')
+        CSRF_TRUSTED_ORIGINS.append(f'https://{host}')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -62,16 +74,36 @@ DATABASES = {
     }
 }
 
+# Static files
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
 
 # API Keys
-GEMINI_API_KEY = "AIzaSyATqR3WHOm852h3N6BR7KKLeUo3zUhVYXc"
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'AIzaSyATqR3WHOm852h3N6BR7KKLeUo3zUhVYXc')
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
+    "http://localhost:8001",
+    "http://127.0.0.1:8001",
 ]
 
+# Добавляем разрешенные хосты в CORS
+for host in ALLOWED_HOSTS:
+    if host and host not in ('localhost', '127.0.0.1'):
+        CORS_ALLOWED_ORIGINS.append(f'http://{host}')
+        CORS_ALLOWED_ORIGINS.append(f'https://{host}')
+        CORS_ALLOWED_ORIGINS.append(f'http://{host}:8001')
+
+# Разрешаем все для разработки (можно отключить в production)
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Security settings for production
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_CONTENT_TYPE_NOSNIFF = True
