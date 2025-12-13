@@ -408,21 +408,66 @@ class AIRecommendationsService:
         try:
             enriched = self._enrich_with_ai(base_recommendations, analysis_data, district_filter)
             
+            # Добавляем статистику по районам
+            districts_stats = analysis_data.get('districts_stats', {})
+            by_district_stats = {}
+            for district, stats in districts_stats.items():
+                deficit = stats.get('total_students', 0) - stats.get('total_capacity', 0)
+                occupancy = round(stats['total_students'] / max(1, stats['total_capacity']) * 100) if stats['total_capacity'] > 0 else 0
+                by_district_stats[district] = {
+                    'schools': stats.get('schools_count', 0),
+                    'students': stats.get('total_students', 0),
+                    'capacity': stats.get('total_capacity', 0),
+                    'deficit': max(0, deficit),
+                    'occupancy': occupancy,
+                    'critical_schools': len(stats.get('critical_schools', []))
+                }
+            
+            total_deficit = analysis_data['total_students'] - analysis_data['total_capacity']
+            avg_occupancy = round(analysis_data['total_students'] / max(1, analysis_data['total_capacity']) * 100) if analysis_data['total_capacity'] > 0 else 0
+            
             return {
                 'success': True,
                 'generated_at': datetime.now().isoformat(),
                 'district_filter': district_filter,
                 'recommendations': enriched,
+                'statistics': {
+                    'total_schools': analysis_data['total_schools'],
+                    'total_students': analysis_data['total_students'],
+                    'total_capacity': analysis_data['total_capacity'],
+                    'total_deficit': max(0, total_deficit),
+                    'avg_occupancy': avg_occupancy,
+                    'by_district': by_district_stats
+                },
                 'analysis_summary': {
                     'high_density_cells_count': len(analysis_data.get('high_density_cells', [])),
                     'cells_without_schools': len(analysis_data.get('cells_without_schools', [])),
                     'total_schools': analysis_data['total_schools'],
-                    'total_deficit': analysis_data['total_students'] - analysis_data['total_capacity']
+                    'total_deficit': total_deficit
                 }
             }
             
         except Exception as e:
             print(f"⚠️ AI обогащение не удалось, используем базовые: {e}")
+            
+            # Добавляем статистику по районам даже при ошибке AI
+            districts_stats = analysis_data.get('districts_stats', {})
+            by_district_stats = {}
+            for district, stats in districts_stats.items():
+                deficit = stats.get('total_students', 0) - stats.get('total_capacity', 0)
+                occupancy = round(stats['total_students'] / max(1, stats['total_capacity']) * 100) if stats['total_capacity'] > 0 else 0
+                by_district_stats[district] = {
+                    'schools': stats.get('schools_count', 0),
+                    'students': stats.get('total_students', 0),
+                    'capacity': stats.get('total_capacity', 0),
+                    'deficit': max(0, deficit),
+                    'occupancy': occupancy,
+                    'critical_schools': len(stats.get('critical_schools', []))
+                }
+            
+            total_deficit = analysis_data['total_students'] - analysis_data['total_capacity']
+            avg_occupancy = round(analysis_data['total_students'] / max(1, analysis_data['total_capacity']) * 100) if analysis_data['total_capacity'] > 0 else 0
+            
             return {
                 'success': True,
                 'generated_at': datetime.now().isoformat(),
@@ -433,11 +478,19 @@ class AIRecommendationsService:
                     'total_schools_needed': len(base_recommendations),
                     'recommendations': base_recommendations
                 },
+                'statistics': {
+                    'total_schools': analysis_data['total_schools'],
+                    'total_students': analysis_data['total_students'],
+                    'total_capacity': analysis_data['total_capacity'],
+                    'total_deficit': max(0, total_deficit),
+                    'avg_occupancy': avg_occupancy,
+                    'by_district': by_district_stats
+                },
                 'analysis_summary': {
                     'high_density_cells_count': len(analysis_data.get('high_density_cells', [])),
                     'cells_without_schools': len(analysis_data.get('cells_without_schools', [])),
                     'total_schools': analysis_data['total_schools'],
-                    'total_deficit': analysis_data['total_students'] - analysis_data['total_capacity']
+                    'total_deficit': total_deficit
                 }
             }
     

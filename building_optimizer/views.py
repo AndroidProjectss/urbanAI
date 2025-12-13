@@ -36,6 +36,38 @@ from .ml_service import (
 import json
 import random
 
+# ═══════════════════════════════════════════════════════════════
+# 🚀 ГЛОБАЛЬНЫЙ КЕШ ДАННЫХ ГОРОДА (для ускорения AI анализа)
+# ═══════════════════════════════════════════════════════════════
+_city_data_cache = {
+    'grid_data': None,
+    'districts_data': None,
+    'restricted_zones': None,
+    'last_updated': None
+}
+
+def get_cached_city_data():
+    """Получить закешированные данные города или загрузить если нет"""
+    global _city_data_cache
+    
+    # Если кеш свежий (менее 10 минут), используем его
+    if _city_data_cache['grid_data'] is not None:
+        return _city_data_cache
+    
+    return None
+
+def update_city_data_cache(grid_data, districts_data, restricted_zones=None):
+    """Обновить кеш данных города"""
+    global _city_data_cache
+    _city_data_cache = {
+        'grid_data': grid_data,
+        'districts_data': districts_data,
+        'restricted_zones': restricted_zones,
+        'last_updated': datetime.now()
+    }
+    print(f"✅ Кеш данных города обновлён: {len(grid_data.get('grid_cells', []))} ячеек сетки")
+
+
 def index(request):
     """Главная страница"""
     return render(request, 'building_optimizer/index.html')
@@ -121,7 +153,18 @@ def get_enhanced_heatmap_data(request):
         districts_population = grid_result['districts_population']
 
         # ═══════════════════════════════════════════════════════════
-        # 🔥 HEATMAP: Генерируем точки из сетки
+        # � КЕШИРОВАНИЕ: Сохраняем данные для AI анализа
+        # ═══════════════════════════════════════════════════════════
+        
+        update_city_data_cache(
+            grid_data=grid_result,
+            districts_data=districts_data,
+            restricted_zones=None  # Будет загружено при первом AI запросе
+        )
+        print(f"💾 Данные закешированы для AI анализа")
+
+        # ═══════════════════════════════════════════════════════════
+        # �🔥 HEATMAP: Генерируем точки из сетки
         # ═══════════════════════════════════════════════════════════
 
         heatmap_data = GridService.generate_heatmap_from_grid(grid_cells)
@@ -1730,16 +1773,31 @@ def ai_school_recommendations(request):
         
         print(f"🤖 AI Recommendations запрос, район: {district_filter or 'все'}, тип: {ownership_filter}")
         
-        # 1. Получаем данные сетки плотности
+        # ═══════════════════════════════════════════════════════════════
+        # 🚀 ОПТИМИЗАЦИЯ: Используем кешированные данные вместо повторной загрузки!
+        # ═══════════════════════════════════════════════════════════════
+        
+        cached_data = get_cached_city_data()
         osm_service = OpenStreetMapService()
         
-        # Загружаем здания
-        residential_data = osm_service.get_residential_buildings_in_city('Бишкек')
-        districts_data = osm_service.get_districts_in_city('Бишкек')
-        
-        # Создаём сетку
-        grid_service = GridService()
-        grid_data = grid_service.create_population_grid(residential_data, districts_data)
+        if cached_data and cached_data['grid_data']:
+            print(f"💾 Используем кешированные данные (загружены: {cached_data['last_updated']})")
+            grid_data = cached_data['grid_data']
+            districts_data = cached_data['districts_data']
+            restricted_zones = cached_data['restricted_zones']
+        else:
+            print(f"⚠️ Кеш пуст, загружаем данные заново...")
+            # Загружаем здания (долгая операция)
+            residential_data = osm_service.get_residential_buildings_in_city('Бишкек')
+            districts_data = osm_service.get_districts_in_city('Бишкек')
+            
+            # Создаём сетку
+            grid_service = GridService()
+            grid_data = grid_service.create_population_grid(residential_data, districts_data)
+            restricted_zones = None
+            
+            # Сохраняем в кеш
+            update_city_data_cache(grid_data, districts_data, restricted_zones)
         
         # 2. Получаем школы с расчётом вместимости
         schools_qs = School.objects.all()
@@ -1782,13 +1840,19 @@ def ai_school_recommendations(request):
             print(f"⚠️ ML forecast error: {e}")
             ml_forecast = None
         
-        # 4. Получаем запрещённые зоны (парки, промзоны и т.д.)
-        try:
-            restricted_zones = osm_service.get_restricted_zones('Бишкек')
-            print(f"🚫 Загружено {len(restricted_zones)} запрещённых зон")
-        except Exception as e:
-            print(f"⚠️ Restricted zones error: {e}")
-            restricted_zones = []
+        # 4. Загружаем запрещённые зоны только если нет в кеше
+        if restricted_zones is None:
+            try:
+                restricted_zones = osm_service.get_restricted_zones('Бишкек')
+                print(f"🚫 Загружено {len(restricted_zones)} запрещённых зон")
+                # Обновляем кеш с запрещёнными зонами
+                if cached_data:
+                    cached_data['restricted_zones'] = restricted_zones
+            except Exception as e:
+                print(f"⚠️ Restricted zones error: {e}")
+                restricted_zones = []
+        else:
+            print(f"🚫 Используем закешированные запрещённые зоны ({len(restricted_zones)} шт.)")
         
         # 5. Подготавливаем данные для AI
         ai_service = get_ai_recommendations_service()

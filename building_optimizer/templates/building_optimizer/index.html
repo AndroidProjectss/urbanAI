@@ -1102,8 +1102,8 @@
                     Найти места для новых школ
                 </button>
                 
-                <!-- Индикатор загрузки -->
-                <div id="ai-loading" style="display: none; text-align: center; padding: 20px;">
+                <!-- Индикатор загрузки AI с этапами -->
+                <div id="ai-loading" style="display: none; text-align: center; padding: 15px; background: #f8f9fa; border-radius: 10px; margin-top: 12px;">
                     <div style="
                         width: 40px;
                         height: 40px;
@@ -1113,8 +1113,41 @@
                         animation: spin 1s linear infinite;
                         margin: 0 auto 10px;
                     "></div>
-                    <div style="color: #666; font-size: 13px;">🤖 AI анализирует данные...</div>
-                    <div style="color: #999; font-size: 11px; margin-top: 4px;">Это может занять 10-30 секунд</div>
+                    <div style="color: #333; font-size: 14px; font-weight: 600; margin-bottom: 10px;">🤖 AI анализирует данные...</div>
+                    
+                    <!-- Этапы AI анализа -->
+                    <div id="ai-loading-steps" style="text-align: left; margin: 10px 0; padding: 10px; background: white; border-radius: 6px; font-size: 12px;">
+                        <div id="ai-step-0" class="ai-step" style="padding: 5px 0; color: #999;">
+                            <span style="margin-right: 6px;">📊</span>Анализ демографии района...
+                            <span class="ai-step-status" style="float: right; font-size: 10px;">⏳</span>
+                        </div>
+                        <div id="ai-step-1" class="ai-step" style="padding: 5px 0; color: #999;">
+                            <span style="margin-right: 6px;">📈</span>Прогноз роста населения...
+                            <span class="ai-step-status" style="float: right; font-size: 10px;">⏳</span>
+                        </div>
+                        <div id="ai-step-2" class="ai-step" style="padding: 5px 0; color: #999;">
+                            <span style="margin-right: 6px;">🚫</span>Поиск критических зон...
+                            <span class="ai-step-status" style="float: right; font-size: 10px;">⏳</span>
+                        </div>
+                        <div id="ai-step-3" class="ai-step" style="padding: 5px 0; color: #999;">
+                            <span style="margin-right: 6px;">🏗️</span>Исключение непригодных участков...
+                            <span class="ai-step-status" style="float: right; font-size: 10px;">⏳</span>
+                        </div>
+                        <div id="ai-step-4" class="ai-step" style="padding: 5px 0; color: #999;">
+                            <span style="margin-right: 6px;">🤖</span>AI подбор оптимальных мест...
+                            <span class="ai-step-status" style="float: right; font-size: 10px;">⏳</span>
+                        </div>
+                        <div id="ai-step-5" class="ai-step" style="padding: 5px 0; color: #999;">
+                            <span style="margin-right: 6px;">📐</span>Проверка по СП/СНиП нормам...
+                            <span class="ai-step-status" style="float: right; font-size: 10px;">⏳</span>
+                        </div>
+                        <div id="ai-step-6" class="ai-step" style="padding: 5px 0; color: #999;">
+                            <span style="margin-right: 6px;">✅</span>Формирование рекомендаций...
+                            <span class="ai-step-status" style="float: right; font-size: 10px;">⏳</span>
+                        </div>
+                    </div>
+                    
+                    <div style="color: #999; font-size: 11px; margin-top: 8px;">⏱️ Примерное время: 15-30 секунд</div>
                 </div>
                 
                 <!-- Результаты AI -->
@@ -1218,22 +1251,28 @@
                 
                 <div style="font-weight: bold; margin-top: 10px; margin-bottom: 5px; font-size: 12px;">🏫 Школы (загруженность):</div>
                 <div class="legend-item">
+                    <div style="width: 18px; height: 18px; background: #9E9E9E; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; margin-right: 8px;">
+                        <span style="color: white; font-size: 10px;">🏫</span>
+                    </div>
+                    <span>Нет данных</span>
+                </div>
+                <div class="legend-item">
+                    <div style="width: 18px; height: 18px; background: #2196F3; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; margin-right: 8px;">
+                        <span style="color: white; font-size: 10px;">🏫</span>
+                    </div>
+                    <span>&lt; 50% недогруз</span>
+                </div>
+                <div class="legend-item">
                     <div style="width: 18px; height: 18px; background: #4CAF50; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; margin-right: 8px;">
                         <span style="color: white; font-size: 10px;">🏫</span>
                     </div>
-                    <span>&lt; 80% норма</span>
+                    <span>50-100% норма</span>
                 </div>
                 <div class="legend-item">
                     <div style="width: 18px; height: 18px; background: #FFC107; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; margin-right: 8px;">
                         <span style="color: white; font-size: 10px;">🏫</span>
                     </div>
-                    <span>80-100%</span>
-                </div>
-                <div class="legend-item">
-                    <div style="width: 18px; height: 18px; background: #FF9800; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; margin-right: 8px;">
-                        <span style="color: white; font-size: 10px;">🏫</span>
-                    </div>
-                    <span>100-120%</span>
+                    <span>100-120% лёгкий перегруз</span>
                 </div>
                 <div class="legend-item">
                     <div style="width: 18px; height: 18px; background: #f44336; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; margin-right: 8px;">
@@ -1578,55 +1617,138 @@
             }
         }
         
-        // Глобальный индикатор загрузки
-        function showGlobalLoading(message) {
+        // Глобальный индикатор загрузки с динамическими этапами
+        var loadingSteps = [];
+        var currentLoadingStep = 0;
+        var loadingStepInterval = null;
+        
+        function showGlobalLoading(message, steps) {
             let loader = document.getElementById('global-loader');
             if (!loader) {
                 loader = document.createElement('div');
                 loader.id = 'global-loader';
-                loader.innerHTML = `
-                    <div style="
-                        position: fixed;
-                        top: 50%;
-                        left: 50%;
-                        transform: translate(-50%, -50%);
-                        background: white;
-                        padding: 30px 40px;
-                        border-radius: 16px;
-                        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-                        z-index: 10000;
-                        text-align: center;
-                        min-width: 280px;
-                    ">
-                        <div style="
-                            width: 50px;
-                            height: 50px;
-                            border: 4px solid #f3f3f3;
-                            border-top: 4px solid #667eea;
-                            border-radius: 50%;
-                            animation: spin 1s linear infinite;
-                            margin: 0 auto 15px;
-                        "></div>
-                        <div id="global-loader-text" style="color: #333; font-size: 14px; font-weight: 500;"></div>
-                        <div style="color: #999; font-size: 12px; margin-top: 5px;">Пожалуйста, подождите...</div>
-                    </div>
-                    <div style="
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        bottom: 0;
-                        background: rgba(0,0,0,0.4);
-                        z-index: 9999;
-                    "></div>
-                `;
                 document.body.appendChild(loader);
             }
-            document.getElementById('global-loader-text').textContent = message || 'Загрузка...';
+            
+            // Этапы загрузки данных города
+            const defaultSteps = [
+                { icon: '🗺️', text: 'Загрузка границ города...', time: '~5 сек' },
+                { icon: '🏛️', text: 'Загрузка районов...', time: '~3 сек' },
+                { icon: '🏠', text: 'Загрузка жилых зданий...', time: '~30 сек' },
+                { icon: '🏫', text: 'Загрузка данных школ...', time: '~10 сек' },
+                { icon: '📊', text: 'Расчёт плотности населения...', time: '~15 сек' },
+                { icon: '🔳', text: 'Формирование сетки 500×500м...', time: '~10 сек' },
+                { icon: '✅', text: 'Подготовка карты...', time: '~5 сек' }
+            ];
+            
+            loadingSteps = steps || defaultSteps;
+            currentLoadingStep = 0;
+            
+            loader.innerHTML = `
+                <div style="
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: white;
+                    padding: 30px 40px;
+                    border-radius: 16px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+                    z-index: 10000;
+                    text-align: center;
+                    min-width: 350px;
+                    max-width: 400px;
+                ">
+                    <div style="
+                        width: 50px;
+                        height: 50px;
+                        border: 4px solid #f3f3f3;
+                        border-top: 4px solid #667eea;
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                        margin: 0 auto 15px;
+                    "></div>
+                    <div id="global-loader-title" style="color: #333; font-size: 16px; font-weight: 600; margin-bottom: 15px;">${message || 'Загрузка данных...'}</div>
+                    
+                    <div id="loading-steps-container" style="text-align: left; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        ${loadingSteps.map((step, i) => `
+                            <div id="loading-step-${i}" class="loading-step-item" style="
+                                display: flex;
+                                align-items: center;
+                                padding: 6px 0;
+                                color: #999;
+                                font-size: 13px;
+                                transition: all 0.3s ease;
+                            ">
+                                <span class="step-icon" style="width: 24px; font-size: 14px;">${step.icon}</span>
+                                <span class="step-text" style="flex: 1;">${step.text}</span>
+                                <span class="step-status" style="font-size: 11px; color: #aaa;">⏳</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div style="color: #666; font-size: 12px; margin-top: 10px;">
+                        <span id="loading-time-estimate">⏱️ Примерное время: 2-3 минуты</span>
+                    </div>
+                </div>
+                <div style="
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0,0,0,0.4);
+                    z-index: 9999;
+                "></div>
+            `;
             loader.style.display = 'block';
+            
+            // Запускаем анимацию шагов
+            startLoadingAnimation();
+        }
+        
+        function startLoadingAnimation() {
+            if (loadingStepInterval) clearInterval(loadingStepInterval);
+            
+            currentLoadingStep = 0;
+            updateLoadingStep(0);
+            
+            // Автоматическая смена шагов каждые 3-8 секунд
+            loadingStepInterval = setInterval(() => {
+                if (currentLoadingStep < loadingSteps.length - 1) {
+                    // Отмечаем текущий шаг как выполненный
+                    const prevStep = document.getElementById(`loading-step-${currentLoadingStep}`);
+                    if (prevStep) {
+                        prevStep.style.color = '#28a745';
+                        prevStep.querySelector('.step-status').textContent = '✓';
+                        prevStep.querySelector('.step-status').style.color = '#28a745';
+                    }
+                    
+                    currentLoadingStep++;
+                    updateLoadingStep(currentLoadingStep);
+                }
+            }, 3000 + Math.random() * 5000); // 3-8 секунд на шаг
+        }
+        
+        function updateLoadingStep(index) {
+            const step = document.getElementById(`loading-step-${index}`);
+            if (step) {
+                step.style.color = '#333';
+                step.style.fontWeight = '600';
+                step.style.background = '#e3f2fd';
+                step.style.margin = '0 -15px';
+                step.style.padding = '8px 15px';
+                step.style.borderRadius = '4px';
+                step.querySelector('.step-status').textContent = '⏳';
+                step.querySelector('.step-status').style.color = '#1976d2';
+            }
         }
         
         function hideGlobalLoading() {
+            if (loadingStepInterval) {
+                clearInterval(loadingStepInterval);
+                loadingStepInterval = null;
+            }
             const loader = document.getElementById('global-loader');
             if (loader) {
                 loader.style.display = 'none';
@@ -2917,14 +3039,18 @@
                 const lng = parseFloat(school.lng || school.longitude);
                 if (!lat || !lng) return;
                 
-                // Цвет маркера в зависимости от загруженности
-                let markerColor = '#4CAF50'; // зеленый - нормально
-                if (school.occupancy_rate > 120) {
-                    markerColor = '#f44336'; // красный - критическая перегрузка
-                } else if (school.occupancy_rate > 100) {
-                    markerColor = '#FF9800'; // оранжевый - перегружена
-                } else if (school.occupancy_rate > 80) {
-                    markerColor = '#FFC107'; // желтый - высокая загруженность
+                // Цвет маркера в зависимости от загруженности (новая 5-уровневая система)
+                let markerColor = '#9E9E9E'; // серый - нет данных (по умолчанию)
+                if (school.occupancy_rate && school.occupancy_rate > 0) {
+                    if (school.occupancy_rate > 120) {
+                        markerColor = '#f44336'; // красный - критический перегруз (>120%)
+                    } else if (school.occupancy_rate > 100) {
+                        markerColor = '#FFC107'; // желтый - лёгкий перегруз (100-120%)
+                    } else if (school.occupancy_rate >= 50) {
+                        markerColor = '#4CAF50'; // зеленый - норма (50-100%)
+                    } else {
+                        markerColor = '#2196F3'; // синий - недогруз (<50%)
+                    }
                 }
 
                 const schoolIcon = {
@@ -3054,6 +3180,81 @@
             }
         }
         
+        // Анимация шагов AI анализа
+        var aiStepInterval = null;
+        var currentAIStep = 0;
+        
+        function startAIStepsAnimation() {
+            if (aiStepInterval) clearInterval(aiStepInterval);
+            
+            currentAIStep = 0;
+            // Сбрасываем все шаги
+            for (let i = 0; i <= 6; i++) {
+                const step = document.getElementById(`ai-step-${i}`);
+                if (step) {
+                    step.style.color = '#999';
+                    step.style.fontWeight = 'normal';
+                    step.style.background = 'transparent';
+                    step.querySelector('.ai-step-status').textContent = '⏳';
+                    step.querySelector('.ai-step-status').style.color = '#999';
+                }
+            }
+            
+            // Активируем первый шаг
+            updateAIStep(0);
+            
+            // Автоматическая смена шагов
+            aiStepInterval = setInterval(() => {
+                if (currentAIStep < 6) {
+                    // Отмечаем текущий как выполненный
+                    const prevStep = document.getElementById(`ai-step-${currentAIStep}`);
+                    if (prevStep) {
+                        prevStep.style.color = '#28a745';
+                        prevStep.style.background = '#e8f5e9';
+                        prevStep.querySelector('.ai-step-status').textContent = '✓';
+                        prevStep.querySelector('.ai-step-status').style.color = '#28a745';
+                    }
+                    
+                    currentAIStep++;
+                    updateAIStep(currentAIStep);
+                }
+            }, 2000 + Math.random() * 2000); // 2-4 секунды на шаг
+        }
+        
+        function updateAIStep(index) {
+            const step = document.getElementById(`ai-step-${index}`);
+            if (step) {
+                step.style.color = '#1976d2';
+                step.style.fontWeight = '600';
+                step.style.background = '#e3f2fd';
+                step.style.borderRadius = '4px';
+                step.style.margin = '2px -5px';
+                step.style.padding = '5px';
+                step.querySelector('.ai-step-status').textContent = '⏳';
+                step.querySelector('.ai-step-status').style.color = '#1976d2';
+            }
+        }
+        
+        function stopAIStepsAnimation() {
+            if (aiStepInterval) {
+                clearInterval(aiStepInterval);
+                aiStepInterval = null;
+            }
+            // Отмечаем все шаги как выполненные
+            for (let i = 0; i <= 6; i++) {
+                const step = document.getElementById(`ai-step-${i}`);
+                if (step) {
+                    step.style.color = '#28a745';
+                    step.style.background = '#e8f5e9';
+                    step.style.borderRadius = '4px';
+                    step.style.margin = '2px -5px';
+                    step.style.padding = '5px';
+                    step.querySelector('.ai-step-status').textContent = '✓';
+                    step.querySelector('.ai-step-status').style.color = '#28a745';
+                }
+            }
+        }
+        
         async function runAIAnalysis() {
             const district = document.getElementById('ai-district-select').value;
             const ownership = currentOwnershipFilter;
@@ -3061,10 +3262,11 @@
             const loading = document.getElementById('ai-loading');
             const results = document.getElementById('ai-results');
             
-            // Показываем загрузку
+            // Показываем загрузку и запускаем анимацию
             btn.style.display = 'none';
             loading.style.display = 'block';
             results.style.display = 'none';
+            startAIStepsAnimation();
             
             // Очищаем предыдущие маркеры
             clearAIMarkers();
@@ -3088,6 +3290,9 @@
                 
                 console.log('📊 Ответ AI:', data);
                 
+                // Останавливаем анимацию
+                stopAIStepsAnimation();
+                
                 if (data.success) {
                     displayAIResults(data);
                     addAIMarkersToMap(data.recommendations);
@@ -3097,6 +3302,7 @@
                 
             } catch (error) {
                 console.error('❌ Ошибка AI:', error);
+                stopAIStepsAnimation();
                 showAIError(error.message);
             } finally {
                 btn.style.display = 'flex';
@@ -3115,6 +3321,10 @@
                 'all': '📚 Все школы'
             }[currentOwnershipFilter] || 'Все школы';
             
+            // Получаем статистику
+            const stats = recs.statistics || data.statistics || {};
+            const districtStats = stats.by_district || {};
+            
             let html = `
                 <div style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
                     <div style="font-weight: bold; color: #2e7d32; margin-bottom: 4px;">
@@ -3126,7 +3336,53 @@
                 </div>
             `;
             
-            // Статистика убрана по запросу
+            // Статистика по нехватке мест
+            const totalDeficit = stats.total_deficit || recs.total_deficit || 0;
+            const totalStudents = stats.total_students || recs.total_students || 0;
+            const totalCapacity = stats.total_capacity || recs.total_capacity || 0;
+            const avgOccupancy = stats.avg_occupancy || recs.avg_occupancy || 0;
+            
+            if (totalDeficit > 0 || Object.keys(districtStats).length > 0) {
+                html += `
+                    <div style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); padding: 12px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #ff9800;">
+                        <div style="font-weight: bold; color: #e65100; margin-bottom: 8px; font-size: 13px;">
+                            📊 Статистика нехватки мест
+                        </div>
+                        
+                        ${totalDeficit > 0 ? `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                            <div style="background: white; padding: 8px; border-radius: 6px; text-align: center;">
+                                <div style="font-size: 18px; font-weight: bold; color: #f44336;">${totalDeficit > 0 ? '-' : ''}${Math.abs(totalDeficit).toLocaleString()}</div>
+                                <div style="font-size: 10px; color: #666;">мест не хватает</div>
+                            </div>
+                            <div style="background: white; padding: 8px; border-radius: 6px; text-align: center;">
+                                <div style="font-size: 18px; font-weight: bold; color: ${avgOccupancy > 100 ? '#f44336' : '#4caf50'};">${avgOccupancy}%</div>
+                                <div style="font-size: 10px; color: #666;">ср. загруженность</div>
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        ${Object.keys(districtStats).length > 0 ? `
+                        <div style="font-size: 11px; color: #666; margin-bottom: 6px;">По районам:</div>
+                        <div style="max-height: 120px; overflow-y: auto;">
+                            ${Object.entries(districtStats).map(([district, stat]) => {
+                                const deficit = stat.deficit || 0;
+                                const occupancy = stat.occupancy || 0;
+                                const color = deficit > 0 ? '#f44336' : '#4caf50';
+                                return `
+                                    <div style="display: flex; justify-content: space-between; padding: 4px 8px; background: white; margin-bottom: 4px; border-radius: 4px; font-size: 11px;">
+                                        <span style="color: #333;">${district}</span>
+                                        <span style="color: ${color}; font-weight: 600;">
+                                            ${deficit > 0 ? `-${deficit.toLocaleString()}` : `+${Math.abs(deficit).toLocaleString()}`} мест
+                                        </span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
             
             // Рекомендации
             const recommendations = recs.recommendations || [];
