@@ -1,7 +1,5 @@
 # UrbanAI - Docker Compose для хакатона
-# Запускается на порту 8001
-
-version: '3.8'
+# Запускается на порту 80
 
 services:
   urbanai:
@@ -11,7 +9,7 @@ services:
     container_name: urbanai_hackathon
     restart: unless-stopped
     ports:
-      - "8001:8001"
+      - "80:8001"
     environment:
       - DEBUG=False
       - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-me-in-production}
