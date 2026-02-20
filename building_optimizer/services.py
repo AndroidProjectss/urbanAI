@@ -10,6 +10,42 @@ import math
 
 class OpenStreetMapService:
     """Расширенный сервис для работы с OpenStreetMap API для Google Maps"""
+
+    OVERPASS_ENDPOINTS = [
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter",
+    ]
+
+    @staticmethod
+    def _post_overpass_with_fallback(overpass_query, headers, request_timeout=240, retries_per_endpoint=2):
+        """Отправить запрос в Overpass с fallback по зеркалам и повторными попытками."""
+        payload = overpass_query.encode('utf-8')
+        last_error = None
+
+        for endpoint in OpenStreetMapService.OVERPASS_ENDPOINTS:
+            for attempt in range(1, retries_per_endpoint + 1):
+                try:
+                    print(f"🌐 Overpass: запрос к {endpoint} (попытка {attempt}/{retries_per_endpoint})")
+                    response = requests.post(
+                        endpoint,
+                        data=payload,
+                        headers=headers,
+                        timeout=(20, request_timeout)
+                    )
+                    response.raise_for_status()
+                    return response
+                except Exception as e:
+                    last_error = e
+                    print(f"⚠️ Overpass: ошибка на {endpoint} (попытка {attempt}): {e}")
+                    if attempt < retries_per_endpoint:
+                        time.sleep(2)
+
+            print(f"↪️ Переключаемся на следующее зеркало Overpass...")
+
+        if last_error:
+            raise last_error
+        raise RuntimeError("Overpass request failed without explicit error")
     
     @staticmethod
     def get_city_boundaries(city_name):
@@ -571,7 +607,6 @@ out geom;"""
 );
 out center geom;"""
         
-        overpass_url = "https://overpass-api.de/api/interpreter"
         headers = {'User-Agent': 'BuildingOptimizerApp/1.0 (murgalag05@gmail.com)'}
 
         try:
@@ -727,7 +762,12 @@ out body geom;"""
         try:
             print(f"🏠 Overpass: Загрузка жилых зданий для {city_name}...")
             time.sleep(2)
-            response = requests.post(overpass_url, data=overpass_query.encode('utf-8'), headers=headers)
+            response = OpenStreetMapService._post_overpass_with_fallback(
+                overpass_query=overpass_query,
+                headers=headers,
+                request_timeout=240,
+                retries_per_endpoint=2,
+            )
             response.raise_for_status()
             data = response.json()
             
