@@ -40,6 +40,13 @@
             overflow-x: hidden;
         }
 
+        .leaflet-control-attribution {
+            font-size: 10px;
+            opacity: 0.75;
+            background: rgba(255, 255, 255, 0.75) !important;
+            padding: 1px 4px !important;
+        }
+
         /* Header */
         .header {
             background: linear-gradient(90deg, var(--primary-black) 0%, var(--secondary-gray) 100%);
@@ -1410,13 +1417,339 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    {% if google_maps_api_key %}
-    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key|urlencode }}&libraries=visualization&callback=initMap" defer></script>
-    {% else %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
     <script>
-        console.error('Google Maps API key is missing. Set GOOGLE_MAPS_API_KEY in .env');
+        (function () {
+            if (window.google && window.google.maps) {
+                return;
+            }
+
+            function toLatLng(value) {
+                if (!value) return [0, 0];
+                if (typeof value.lat === 'function') return [value.lat(), value.lng()];
+                return [value.lat, value.lng];
+            }
+
+            class GLatLng {
+                constructor(lat, lng) {
+                    this._lat = Number(lat);
+                    this._lng = Number(lng);
+                }
+                lat() { return this._lat; }
+                lng() { return this._lng; }
+            }
+
+            class GPoint {
+                constructor(x, y) {
+                    this.x = x;
+                    this.y = y;
+                }
+            }
+
+            class GSize {
+                constructor(width, height) {
+                    this.width = width;
+                    this.height = height;
+                }
+            }
+
+            class GBounds {
+                constructor(bounds) {
+                    this._bounds = bounds;
+                }
+                getNorthEast() {
+                    const ne = this._bounds.getNorthEast();
+                    return new GLatLng(ne.lat, ne.lng);
+                }
+                getSouthWest() {
+                    const sw = this._bounds.getSouthWest();
+                    return new GLatLng(sw.lat, sw.lng);
+                }
+            }
+
+            class GMap {
+                constructor(element, options = {}) {
+                    const center = toLatLng(options.center || { lat: 42.87, lng: 74.59 });
+                    const zoom = options.zoom || 12;
+                    this.__leafletMap = L.map(element, {
+                        zoomControl: true,
+                        attributionControl: true
+                    }).setView(center, zoom);
+
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 20,
+                        attribution: '&copy; OpenStreetMap contributors'
+                    }).addTo(this.__leafletMap);
+
+                    if (this.__leafletMap.attributionControl) {
+                        this.__leafletMap.attributionControl.setPrefix('');
+                    }
+                }
+
+                addListener(eventName, callback) {
+                    const events = {
+                        zoom_changed: 'zoomend',
+                        idle: 'moveend'
+                    };
+                    const evt = events[eventName] || eventName;
+                    this.__leafletMap.on(evt, callback);
+                    return { remove: () => this.__leafletMap.off(evt, callback) };
+                }
+
+                getZoom() { return this.__leafletMap.getZoom(); }
+                setZoom(zoom) { this.__leafletMap.setZoom(zoom); }
+                getBounds() { return new GBounds(this.__leafletMap.getBounds()); }
+                setCenter(center) {
+                    const [lat, lng] = toLatLng(center);
+                    this.__leafletMap.panTo([lat, lng]);
+                }
+            }
+
+            class GInfoWindow {
+                constructor(options = {}) {
+                    this.content = options.content || '';
+                    this.position = options.position || null;
+                    this._popup = null;
+                    this._map = null;
+                    this._anchor = null;
+                }
+
+                open(mapWrapper, anchor) {
+                    this._map = mapWrapper && mapWrapper.__leafletMap ? mapWrapper.__leafletMap : null;
+                    this._anchor = anchor || null;
+
+                    if (anchor && anchor.__layer) {
+                        anchor.__layer.bindPopup(this.content).openPopup();
+                        this._popup = anchor.__layer.getPopup();
+                        return;
+                    }
+
+                    if (this._map && this.position) {
+                        const [lat, lng] = toLatLng(this.position);
+                        this._popup = L.popup().setLatLng([lat, lng]).setContent(this.content).openOn(this._map);
+                    }
+                }
+
+                close() {
+                    if (this._anchor && this._anchor.__layer) {
+                        this._anchor.__layer.closePopup();
+                    }
+                    if (this._map && this._popup) {
+                        this._map.closePopup(this._popup);
+                    }
+                }
+            }
+
+            class GMarker {
+                constructor(options = {}) {
+                    this._options = options;
+                    this._mapWrapper = options.map || null;
+                    const [lat, lng] = toLatLng(options.position || { lat: 0, lng: 0 });
+
+                    if (options.icon && options.icon.path === 'CIRCLE') {
+                        this.__layer = L.circleMarker([lat, lng], {
+                            radius: options.icon.scale || 6,
+                            fillColor: options.icon.fillColor || '#3388ff',
+                            fillOpacity: options.icon.fillOpacity ?? 1,
+                            color: options.icon.strokeColor || '#3388ff',
+                            weight: options.icon.strokeWeight || 1
+                        });
+                    } else if (options.icon && options.icon.url) {
+                        const iconSize = options.icon.scaledSize ? [options.icon.scaledSize.width, options.icon.scaledSize.height] : [25, 41];
+                        const iconAnchor = options.icon.anchor ? [options.icon.anchor.x, options.icon.anchor.y] : [12, 41];
+                        const icon = L.icon({
+                            iconUrl: options.icon.url,
+                            iconSize,
+                            iconAnchor
+                        });
+                        this.__layer = L.marker([lat, lng], { icon, title: options.title || '' });
+                    } else {
+                        this.__layer = L.marker([lat, lng], { title: options.title || '' });
+                    }
+
+                    if (this._mapWrapper && this._mapWrapper.__leafletMap) {
+                        this.__layer.addTo(this._mapWrapper.__leafletMap);
+                    }
+                }
+
+                addListener(eventName, callback) {
+                    this.__layer.on(eventName, callback);
+                    return { remove: () => this.__layer.off(eventName, callback) };
+                }
+
+                setMap(mapWrapper) {
+                    if (!mapWrapper || !mapWrapper.__leafletMap) {
+                        this.__layer.remove();
+                        this._mapWrapper = null;
+                        return;
+                    }
+                    this._mapWrapper = mapWrapper;
+                    this.__layer.addTo(mapWrapper.__leafletMap);
+                }
+
+                getPosition() {
+                    const p = this.__layer.getLatLng();
+                    return new GLatLng(p.lat, p.lng);
+                }
+            }
+
+            class GPolygon {
+                constructor(options = {}) {
+                    const paths = (options.paths || []).map(p => [p.lat, p.lng]);
+                    this.__layer = L.polygon(paths, {
+                        color: options.strokeColor || '#3388ff',
+                        weight: options.strokeWeight || 3,
+                        opacity: options.strokeOpacity ?? 1,
+                        fillColor: options.fillColor || options.strokeColor || '#3388ff',
+                        fillOpacity: options.fillOpacity ?? 0.2,
+                        interactive: options.clickable !== false
+                    });
+                    if (options.map && options.map.__leafletMap) {
+                        this.__layer.addTo(options.map.__leafletMap);
+                    }
+                }
+
+                setMap(mapWrapper) {
+                    if (!mapWrapper || !mapWrapper.__leafletMap) {
+                        this.__layer.remove();
+                    } else {
+                        this.__layer.addTo(mapWrapper.__leafletMap);
+                    }
+                }
+
+                setOptions(opts = {}) {
+                    this.__layer.setStyle({
+                        color: opts.strokeColor,
+                        weight: opts.strokeWeight,
+                        opacity: opts.strokeOpacity,
+                        fillColor: opts.fillColor,
+                        fillOpacity: opts.fillOpacity
+                    });
+                }
+
+                addListener(eventName, callback) {
+                    this.__layer.on(eventName, callback);
+                    return { remove: () => this.__layer.off(eventName, callback) };
+                }
+            }
+
+            class GRectangle {
+                constructor(options = {}) {
+                    const b = options.bounds || {};
+                    const bounds = [[b.south, b.west], [b.north, b.east]];
+                    this.__layer = L.rectangle(bounds, {
+                        color: options.strokeColor || '#3388ff',
+                        weight: options.strokeWeight || 1,
+                        opacity: options.strokeOpacity ?? 1,
+                        fillColor: options.fillColor || options.strokeColor || '#3388ff',
+                        fillOpacity: options.fillOpacity ?? 0.2,
+                        interactive: options.clickable !== false
+                    });
+                    if (options.map && options.map.__leafletMap) {
+                        this.__layer.addTo(options.map.__leafletMap);
+                    }
+                }
+
+                setMap(mapWrapper) {
+                    if (!mapWrapper || !mapWrapper.__leafletMap) {
+                        this.__layer.remove();
+                    } else {
+                        this.__layer.addTo(mapWrapper.__leafletMap);
+                    }
+                }
+
+                addListener(eventName, callback) {
+                    this.__layer.on(eventName, callback);
+                    return { remove: () => this.__layer.off(eventName, callback) };
+                }
+            }
+
+            class GCircle {
+                constructor(options = {}) {
+                    const [lat, lng] = toLatLng(options.center || { lat: 0, lng: 0 });
+                    this.__layer = L.circle([lat, lng], {
+                        radius: options.radius || 0,
+                        color: options.strokeColor || '#3388ff',
+                        weight: options.strokeWeight || 1,
+                        opacity: options.strokeOpacity ?? 1,
+                        fillColor: options.fillColor || options.strokeColor || '#3388ff',
+                        fillOpacity: options.fillOpacity ?? 0.2,
+                        interactive: options.clickable === true
+                    });
+                    if (options.map && options.map.__leafletMap) {
+                        this.__layer.addTo(options.map.__leafletMap);
+                    }
+                }
+
+                setMap(mapWrapper) {
+                    if (!mapWrapper || !mapWrapper.__leafletMap) {
+                        this.__layer.remove();
+                    } else {
+                        this.__layer.addTo(mapWrapper.__leafletMap);
+                    }
+                }
+            }
+
+            class GHeatmapLayer {
+                constructor(options = {}) {
+                    const points = (options.data || []).map(item => {
+                        const loc = item.location;
+                        const [lat, lng] = toLatLng(loc);
+                        const w = Number(item.weight || 1);
+                        return [lat, lng, w];
+                    });
+
+                    this.__layer = L.heatLayer(points, {
+                        radius: options.radius || 25,
+                        blur: 20,
+                        maxZoom: 17,
+                        minOpacity: options.opacity ?? 0.4
+                    });
+
+                    if (options.map && options.map.__leafletMap) {
+                        this.__layer.addTo(options.map.__leafletMap);
+                    }
+                }
+
+                setMap(mapWrapper) {
+                    if (!mapWrapper || !mapWrapper.__leafletMap) {
+                        this.__layer.remove();
+                    } else {
+                        this.__layer.addTo(mapWrapper.__leafletMap);
+                    }
+                }
+            }
+
+            window.google = {
+                maps: {
+                    Map: GMap,
+                    Marker: GMarker,
+                    Polygon: GPolygon,
+                    Rectangle: GRectangle,
+                    Circle: GCircle,
+                    InfoWindow: GInfoWindow,
+                    LatLng: GLatLng,
+                    Size: GSize,
+                    Point: GPoint,
+                    SymbolPath: {
+                        CIRCLE: 'CIRCLE'
+                    },
+                    visualization: {
+                        HeatmapLayer: GHeatmapLayer
+                    },
+                    event: {
+                        trigger(target, eventName) {
+                            if (target && target.__layer) {
+                                target.__layer.fire(eventName);
+                            }
+                        }
+                    }
+                }
+            };
+        })();
     </script>
-    {% endif %}
     
     <script>
         // ═══════════════════════════════════════════════════════════════
@@ -3534,6 +3867,7 @@
                     strokeWeight: 2,
                     fillColor: color,
                     fillOpacity: 0.15,
+                    clickable: false,
                     map: map,
                     center: { lat: rec.location.lat, lng: rec.location.lng },
                     radius: 800 // 800 метров
@@ -3603,6 +3937,9 @@
         // Инициализация
         document.addEventListener('DOMContentLoaded', () => {
             console.log('Система анализа городской инфраструктуры загружена');
+            if (!map) {
+                initMap();
+            }
         });
     </script>
 </body>
