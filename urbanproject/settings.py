@@ -11,7 +11,8 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-your-secret-key-here')
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 # Разрешенные хосты из env или дефолтные
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+_raw_allowed_hosts = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if h.strip()]
+ALLOWED_HOSTS = list(dict.fromkeys(_raw_allowed_hosts + ['127.0.0.1', 'localhost']))
 
 # CSRF trusted origins для production
 CSRF_TRUSTED_ORIGINS = [
@@ -81,6 +82,7 @@ STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else 
 
 # API Keys
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'AIzaSyATqR3WHOm852h3N6BR7KKLeUo3zUhVYXc')
+GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', '')
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [

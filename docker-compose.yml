@@ -15,6 +15,7 @@ services:
       - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-me-in-production}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,your-domain.com}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
     volumes:
       # Сохраняем базу данных между перезапусками
       - urbanai_db:/app/db_data

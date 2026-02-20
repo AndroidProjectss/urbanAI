@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from datetime import datetime
@@ -70,7 +71,9 @@ def update_city_data_cache(grid_data, districts_data, restricted_zones=None):
 
 def index(request):
     """Главная страница"""
-    return render(request, 'building_optimizer/index.html')
+    return render(request, 'building_optimizer/index.html', {
+        'google_maps_api_key': settings.GOOGLE_MAPS_API_KEY,
+    })
 
 @csrf_exempt
 @api_view(['GET'])
